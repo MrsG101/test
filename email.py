@@ -3,9 +3,9 @@ import pandas as pd
 
 st.title("📧 System Email Cleanup Tool")
 
-active_file = st.file_uploader("1️⃣ Active Email List", type=["xlsx"])
-protected_file = st.file_uploader("2️⃣ Protected Email List", type=["xlsx"])
-system_file = st.file_uploader("3️⃣ System Users File", type=["xlsx"])
+active = pd.read_excel(active_file, engine="openpyxl")
+protected = pd.read_excel(protected_file, engine="openpyxl")
+system = pd.read_excel(system_file, engine="openpyxl")
 
 if active_file and protected_file and system_file:
 
