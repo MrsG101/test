@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
-st.title("📧 Datacom - Active Email Cleanup Tool")
+st.title("📧 Active Email Cleanup Tool")
 
 active_file = st.file_uploader("1️⃣ Active Email List", type=["xlsx"])
 protected_file = st.file_uploader("2️⃣ Protected Email List", type=["xlsx"])
@@ -19,12 +20,11 @@ if active_file and protected_file and system_file:
     protected = pd.read_excel(protected_file, engine="openpyxl")
     system = pd.read_excel(system_file, engine="openpyxl")
 
-    # ===== CLEAN COLUMN NAMES =====
     active = clean_columns(active)
     protected = clean_columns(protected)
     system = clean_columns(system)
 
-    # ===== COLUMN SETTINGS (STABLE) =====
+    # ===== COLUMN SETTINGS =====
     active_email_col = "email"
     protected_email_col = "email"
     system_email_col = "Имэйл"
@@ -32,7 +32,7 @@ if active_file and protected_file and system_file:
     status_col = "Агент идэвхгүй болсон"
     login_col = "Last Login Date"
 
-    # ===== CLEAN EMAIL =====
+    # ===== EMAIL CLEAN =====
     active["email_clean"] = (
         active[active_email_col]
         .astype(str)
@@ -63,13 +63,10 @@ if active_file and protected_file and system_file:
         .str.strip()
     )
 
-    # ===== PRIORITY =====
     system["priority"] = system["inactive"].map({"no": 0, "yes": 1}).fillna(1)
 
-    # ===== LOGIN DATE =====
     system[login_col] = pd.to_datetime(system[login_col], errors="coerce")
 
-    # ===== DUPLICATE RESOLVE =====
     system_sorted = system.sort_values(
         by=["email", "priority", login_col],
         ascending=[True, True, False]
@@ -77,27 +74,48 @@ if active_file and protected_file and system_file:
 
     system_unique = system_sorted.drop_duplicates("email", keep="first")
 
-    # ===== SYSTEM ACTIVE EMAILS =====
     system_active_emails = system_unique[
         system_unique["inactive"] == "no"
     ]["email"].dropna().unique()
 
-    # ===== DELETE LIST =====
-    delete_list = active[
+    system_all_emails = system_unique["email"].dropna().unique()
+
+    # ===== CANDIDATE =====
+    candidate = active[
         ~active["email_clean"].isin(protected_emails)
         & ~active["email_clean"].isin(system_active_emails)
-    ]
+    ].copy()
+
+    # ===== SPLIT =====
+    investigation_list = candidate[
+        ~candidate["email_clean"].isin(system_all_emails)
+    ].copy()
+
+    delete_list = candidate[
+        candidate["email_clean"].isin(system_all_emails)
+    ].copy()
 
     # ===== SUMMARY =====
     st.success(f"✅ Active total: {len(active)}")
-    st.warning(f"🗑️ Delete candidates: {len(delete_list)}")
+    st.warning(f"🗑️ To Delete: {len(delete_list)}")
+    st.info(f"🔎 Need Investigation: {len(investigation_list)}")
 
-    st.subheader("Delete Candidate Preview")
+    st.subheader("Delete Preview")
     st.dataframe(delete_list)
 
+    st.subheader("Investigation Preview")
+    st.dataframe(investigation_list)
+
+    # ===== EXCEL EXPORT =====
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        delete_list.to_excel(writer, sheet_name="To_Delete", index=False)
+        investigation_list.to_excel(writer, sheet_name="Need_Investigation", index=False)
+
     st.download_button(
-        "⬇️ Download Delete List",
-        delete_list.to_csv(index=False),
-        "DELETE_EMAIL_LIST.csv",
-        "text/csv"
+        "⬇️ Download Result Excel",
+        output.getvalue(),
+        "EMAIL_CLEANUP_RESULT.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
