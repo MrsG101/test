@@ -14,6 +14,10 @@ if active_file and protected_file and system_file:
     system = pd.read_excel(system_file, engine="openpyxl")
 
     st.write("Files loaded successfully ✅")
+
+st.write("ACTIVE COLUMNS 👉", list(active.columns))
+st.write("PROTECTED COLUMNS 👉", list(protected.columns))
+st.write("SYSTEM COLUMNS 👉", list(system.columns))
 if active_file and protected_file and system_file:
 
     active = pd.read_excel(active_file)
