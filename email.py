@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+pip install openpyxl 
 
 st.title("📧 System Email Cleanup Tool")
 
