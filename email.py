@@ -4,9 +4,9 @@ from io import BytesIO
 
 st.title("📧 REMAX Mongolia email cleanup tool")
 
-active_file = st.file_uploader("1️⃣ Active Email List", type=["xlsx"])
-protected_file = st.file_uploader("2️⃣ Protected Email List", type=["xlsx"])
-system_file = st.file_uploader("3️⃣ System Users File", type=["xlsx"])
+active_file = st.file_uploader("1️⃣ Датаком лист", type=["xlsx"])
+protected_file = st.file_uploader("2️⃣ Брокер болон ажилтнуудын лист", type=["xlsx"])
+system_file = st.file_uploader("3️⃣ iconnect дата", type=["xlsx"])
 
 
 def clean_columns(df):
