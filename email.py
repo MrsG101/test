@@ -18,6 +18,9 @@ if active_file and protected_file and system_file:
 st.write("ACTIVE COLUMNS 👉", list(active.columns))
 st.write("PROTECTED COLUMNS 👉", list(protected.columns))
 st.write("SYSTEM COLUMNS 👉", list(system.columns))
+active.columns = active.columns.astype(str).str.strip()
+protected.columns = protected.columns.astype(str).str.strip()
+system.columns = system.columns.astype(str).str.strip()
 if active_file and protected_file and system_file:
 
     active = pd.read_excel(active_file)
