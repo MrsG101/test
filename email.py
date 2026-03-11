@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-st.title("📧 REMAX Mongolia email cleanup tool")
+st.title("📧 REMAX email cleanup tool")
 
 active_file = st.file_uploader("1️⃣ Датаком лист", type=["xlsx"])
 protected_file = st.file_uploader("2️⃣ Брокер болон ажилтнуудын лист", type=["xlsx"])
