@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-st.title("📧 REMAX Mongolia Email Cleanup Tool")
+st.title("📧 REMAX Mongolia имэйл лист шалгах")
 
 active_file = st.file_uploader("1️⃣ Active Email List", type=["xlsx"])
 protected_file = st.file_uploader("2️⃣ Protected Email List", type=["xlsx"])
@@ -100,10 +100,10 @@ if active_file and protected_file and system_file:
     st.warning(f"🗑️ To Delete: {len(delete_list)}")
     st.info(f"🔎 Need Investigation: {len(investigation_list)}")
 
-    st.subheader("Delete Preview")
+    st.subheader("Устгах")
     st.dataframe(delete_list)
 
-    st.subheader("Investigation Preview")
+    st.subheader("Тодруулах шаардлагатай")
     st.dataframe(investigation_list)
 
     # ===== EXCEL EXPORT =====
