@@ -53,7 +53,7 @@ if active_file and protected_file and system_file:
     # auto detect columns
     active_email_col = find_email_col(active)
     protected_email_col = find_email_col(protected)
-    system_email_col = find_email_col(system)
+    system_email_col = "Имэйл"
     status_col = find_status_col(system)
     login_col = find_login_col(system)
 
