@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.title("📧 Email Delete List Generator")
+st.title("📧 System Email Cleanup Tool")
 
 active_file = st.file_uploader("1️⃣ Active Email List", type=["xlsx"])
 protected_file = st.file_uploader("2️⃣ Protected Email List", type=["xlsx"])
@@ -13,27 +13,56 @@ if active_file and protected_file and system_file:
     protected = pd.read_excel(protected_file)
     system = pd.read_excel(system_file)
 
-    # email column name тохируул
-    active_emails = active["email"].str.lower().dropna().unique()
-    protected_emails = protected["email"].str.lower().dropna().unique()
+    # ===== COLUMN SETTINGS =====
+    EMAIL_COL = "Имэйл"
+    STATUS_COL = "Агент идэвхгүй болсон"
+    LOGIN_COL = "Last Login Date"
 
-    system["email"] = system["email"].str.lower()
+    # ===== CLEAN EMAIL =====
+    active_emails = active[EMAIL_COL].str.lower().str.strip().dropna().unique()
+    protected_emails = protected[EMAIL_COL].str.lower().str.strip().dropna().unique()
 
-    # delete candidate
-    delete_list = system[
-        ~system["email"].isin(active_emails)
-        & ~system["email"].isin(protected_emails)
+    system["email"] = system[EMAIL_COL].str.lower().str.strip()
+    system["inactive"] = system[STATUS_COL].str.lower().str.strip()
+
+    # ===== PRIORITY =====
+    # No = active = 0
+    # Yes = inactive = 1
+    system["priority"] = system["inactive"].map({"no":0, "yes":1})
+
+    # login date
+    system[LOGIN_COL] = pd.to_datetime(system[LOGIN_COL], errors="coerce")
+
+    # ===== SMART DUPLICATE RESOLVE =====
+    system_sorted = system.sort_values(
+        by=["email", "priority", LOGIN_COL],
+        ascending=[True, True, False]
+    )
+
+    system_unique = system_sorted.drop_duplicates("email", keep="first")
+
+    # ===== DELETE CANDIDATE =====
+    delete_list = system_unique[
+        (system_unique["inactive"] == "yes") &
+        ~system_unique["email"].isin(active_emails) &
+        ~system_unique["email"].isin(protected_emails)
     ]
 
-    delete_list = delete_list.drop_duplicates("email")
+    # ===== SUMMARY =====
+    total_system = len(system_unique)
+    delete_count = len(delete_list)
+    keep_count = total_system - delete_count
 
-    st.success(f"✅ Delete email count: {len(delete_list)}")
+    st.success(f"✅ Total unique emails: {total_system}")
+    st.warning(f"🗑️ Delete candidates: {delete_count}")
+    st.info(f"✅ Keep emails: {keep_count}")
 
+    st.subheader("Delete Candidate Preview")
     st.dataframe(delete_list)
 
     st.download_button(
         "⬇️ Download Delete List",
         delete_list.to_csv(index=False),
-        "delete_list.csv",
+        "DELETE_EMAIL_LIST.csv",
         "text/csv"
     )
