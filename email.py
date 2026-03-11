@@ -15,12 +15,6 @@ if active_file and protected_file and system_file:
 
     st.write("Files loaded successfully ✅")
 
-st.write("ACTIVE COLUMNS 👉", list(active.columns))
-st.write("PROTECTED COLUMNS 👉", list(protected.columns))
-st.write("SYSTEM COLUMNS 👉", list(system.columns))
-active.columns = active.columns.astype(str).str.strip()
-protected.columns = protected.columns.astype(str).str.strip()
-system.columns = system.columns.astype(str).str.strip()
 if active_file and protected_file and system_file:
 
     active = pd.read_excel(active_file)
@@ -31,6 +25,18 @@ if active_file and protected_file and system_file:
     EMAIL_COL = "Имэйл"
     STATUS_COL = "Агент идэвхгүй болсон"
     LOGIN_COL = "Last Login Date"
+
+st.write("ACTIVE COLUMNS 👉", list(active.columns))
+st.write("PROTECTED COLUMNS 👉", list(protected.columns))
+st.write("SYSTEM COLUMNS 👉", list(system.columns))
+active.columns = active.columns.astype(str).str.strip()
+protected.columns = protected.columns.astype(str).str.strip()
+system.columns = system.columns.astype(str).str.strip()
+EMAIL_COL = "Имэйл"
+
+if EMAIL_COL not in active.columns:
+    st.error(f"Active file-д '{EMAIL_COL}' column байхгүй байна")
+    st.stop()
 
     # ===== CLEAN EMAIL =====
     active_emails = active[EMAIL_COL].str.lower().str.strip().dropna().unique()
