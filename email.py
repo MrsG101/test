@@ -1,13 +1,19 @@
 import streamlit as st
 import pandas as pd
-pip install openpyxl 
 
 st.title("📧 System Email Cleanup Tool")
 
-active = pd.read_excel(active_file, engine="openpyxl")
-protected = pd.read_excel(protected_file, engine="openpyxl")
-system = pd.read_excel(system_file, engine="openpyxl")
+active_file = st.file_uploader("Active file", type=["xlsx"])
+protected_file = st.file_uploader("Protected file", type=["xlsx"])
+system_file = st.file_uploader("System file", type=["xlsx"])
 
+if active_file and protected_file and system_file:
+
+    active = pd.read_excel(active_file, engine="openpyxl")
+    protected = pd.read_excel(protected_file, engine="openpyxl")
+    system = pd.read_excel(system_file, engine="openpyxl")
+
+    st.write("Files loaded successfully ✅")
 if active_file and protected_file and system_file:
 
     active = pd.read_excel(active_file)
