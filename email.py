@@ -25,8 +25,8 @@ if active_file and protected_file and system_file:
     system = clean_columns(system)
 
     # ===== COLUMN SETTINGS (STABLE) =====
-    active_email_col = "Имэйл"
-    protected_email_col = "Имэйл"
+    active_email_col = "email"
+    protected_email_col = "email"
     system_email_col = "Имэйл"
 
     status_col = "Агент идэвхгүй болсон"
