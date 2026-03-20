@@ -30,12 +30,17 @@ with col2:
 
 if max_file is not None and icon_file is not None:
     # ---------- Maxcenter унших ----------
-    try:
-        max_df = pd.read_excel(max_file, sheet_name="Roster", header=1)
+        try:
+        max_df = pd.read_excel(max_file, sheet_name="Roster", header=2)
     except Exception as e:
         st.error(f"Maxcenter файлыг уншихад алдаа гарлаа: {e}")
         st.stop()
 
+    # ────────────── DEBUG ──────────────
+    st.write("### Maxcenter-ийн баганууд (уншсаны дараа):")
+    st.write(list(max_df.columns))
+    st.dataframe(max_df.head(3))   # эхний 3 мөрийг харуулна
+    # ───────────────────────────────────
     # Нэр цэвэрлэх – ЗӨВХӨН First Name + Last Name
     def make_full_name(row):
         parts = []
