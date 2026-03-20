@@ -11,7 +11,7 @@
 </head>
 <body>
 <h1>✅ Maxcenter ба iConnect Агент Тулгах Tool</h1>
-<p>Доорх кодыг <strong>app.py</strong> гэж хадгалаад <code>streamlit run app.py</code> гэж ажиллуулна уу.</p>
+<p>Доорх кодыг <strong>maxcenterapp.py</strong> гэж хадгалаад <code>streamlit run maxcenterapp.py</code> гэж ажиллуулна уу.</p>
 <p>Файлуудыг оруулахад:</p>
 <ul>
     <li>Maxcenter (xlsx) – "Roster" sheet</li>
