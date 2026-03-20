@@ -36,13 +36,17 @@ if max_file is not None and icon_file is not None:
         st.error(f"Maxcenter файлыг уншихад алдаа гарлаа: {e}")
         st.stop()
 
-    # Нэр цэвэрлэх функц
+    # Нэр цэвэрлэх – ЗӨВХӨН First Name + Last Name
     def make_full_name(row):
         parts = []
-        for col in ["First Name", "Middle Name", "Last Name"]:
-            val = row.get(col, "")
-            if pd.notna(val) and str(val).strip():
-                parts.append(str(val).strip())
+        first = row.get("First Name", "")
+        last = row.get("Last Name", "")
+        
+        if pd.notna(first) and str(first).strip():
+            parts.append(str(first).strip())
+        if pd.notna(last) and str(last).strip():
+            parts.append(str(last).strip())
+        
         return " ".join(parts).strip()
 
     max_df["full_name"] = max_df.apply(make_full_name, axis=1)
@@ -54,17 +58,16 @@ if max_file is not None and icon_file is not None:
     icon_bytes_io = BytesIO(icon_bytes)
 
     try:
-        # Эхлээд Excel гэж оролдоно
         icon_df = pd.read_excel(icon_bytes_io)
     except:
-        # Excel биш бол HTML table гэж оролдоно
         try:
-            icon_df = pd.read_html(icon_bytes_io)[0]
+            # html5lib parser ашиглаж lxml шаардлагагүй болгох
+            icon_df = pd.read_html(icon_bytes_io, flavor='html5lib')[0]
         except Exception as e:
-            st.error(f"iConnect файлыг уншихад алдаа гарлаа: {e}")
+            st.error(f"iConnect файлыг уншихад алдаа гарлаа: {e}\n(lxml эсвэл html5lib суулгаарай: pip install lxml эсвэл pip install html5lib)")
             st.stop()
 
-    # iConnect-ийн багануудыг цэвэрлэх
+    # iConnect цэвэрлэгээ
     if "Агентын нэр" in icon_df.columns:
         icon_df["clean_name"] = icon_df["Агентын нэр"].astype(str)\
             .str.replace(r"\s*\(Transferred\)", "", regex=True)\
@@ -97,31 +100,27 @@ if max_file is not None and icon_file is not None:
         if len(active_matches) == 0:
             return "Гарсан тул устгах", None
 
-        # Оффис таарсан эсэх
         if "office_clean" in active_matches.columns:
             matching_office = active_matches[active_matches["office_clean"] == office_max]
             if not matching_office.empty:
                 return "Зөв бүртгэлтэй", None
             else:
-                # Эхний идэвхтэй олдсон оффисыг санал болгоно
                 suggested = active_matches.iloc[0]["office_clean"]
                 return "Шилжсэн оффис засах", suggested
         else:
             return "Зөв бүртгэлтэй (оффис мэдээлэл байхгүй)", None
 
-    # Apply статус
     status_results = max_df.apply(lambda r: get_status(r, icon_df), axis=1)
     max_df["status"] = [x[0] for x in status_results]
     max_df["suggested_office"] = [x[1] for x in status_results]
 
-    # Ангилах
+    # Ангилах (өмнөхтэй адил)
     to_delete   = max_df[max_df["status"] == "Гарсан тул устгах"].copy()
     to_check    = max_df[max_df["status"] == "Шалгах олдоогүй"].copy()
     to_update   = max_df[max_df["status"] == "Шилжсэн оффис засах"].copy()
     correct     = max_df[max_df["status"] == "Зөв бүртгэлтэй"].copy()
     owners      = max_df[max_df["status"].str.contains("Owner", na=False)].copy()
 
-    # iConnect-д байгаа ч Maxcenter-д байхгүй идэвхтэй агентууд
     max_norm_set = set(max_df["norm_name"].dropna())
     to_create = icon_df[
         (icon_df.get("is_active", False)) &
