@@ -17,13 +17,14 @@ if max_file and icon_file:
     # ────────────────────────────── MAXCENTER ──────────────────────────────
     max_df = pd.read_excel(max_file, sheet_name="Roster", header=2)
 
-    max_df.columns = [str(c).strip().replace('\n', '').replace('\r', '').replace('  ', ' ') for c in max_df.columns]
+    # Баганын нэрийг зөөлөн цэвэрлэх
+    max_df.columns = [str(c).strip().replace('\n', '').replace('\r', '') for c in max_df.columns]
 
-    # Шаардлагатай багана байгаа эсэх шалгах
-    required_max = ['First Name', 'Last Name', 'Office Name', 'Role']
-    missing_max = [c for c in required_max if c not in max_df.columns]
-    if missing_max:
-        st.error(f"Maxcenter-д дараах баганууд олдсонгүй: {missing_max}\n\nУншигдсан баганууд:\n" + "\n".join(max_df.columns))
+    # Шаардлагатай баганууд шалгах
+    required = ['First Name', 'Last Name', 'Office Name', 'Role']
+    missing = [c for c in required if c not in max_df.columns]
+    if missing:
+        st.error(f"Maxcenter-д дараах баганууд олдсонгүй: {missing}\n\nУншигдсан баганууд:\n" + "\n".join(max_df.columns))
         st.stop()
 
     max_df['full_name'] = (
@@ -42,37 +43,15 @@ if max_file and icon_file:
     except:
         icon_df = pd.read_html(BytesIO(icon_bytes))[0]
 
-    icon_df.columns = [str(c).strip().replace('\n', '').replace('\r', '').replace('  ', ' ') for c in icon_df.columns]
+    # Баганын нэрийг зөөлөн цэвэрлэх
+    icon_df.columns = [str(c).strip().replace('\n', '').replace('\r', '') for c in icon_df.columns]
 
-    # iConnect-ийн баганын нэрүүдийг шалгах & debug харуулах
-    st.subheader("iConnect-д уншигдсан баганууд (цэвэрлэсний дараа)")
-    st.code("\n".join(icon_df.columns.tolist()), language="text")
+    # Яг таны хэлсэн нэрээр шууд ашиглах
+    position_col = 'Одоогийн REMAX дэх албан тушаал'
 
-    required_icon = {
-        'Агентын нэр': None,
-        'Оффисын нэр': None,
-        'Агент идэвхгүй болсон': None,
-        'Одоогийн RE/MAX дэх албан тушаал': None
-    }
-
-    for key in required_icon:
-        found = [c for c in icon_df.columns if key in c]
-        if found:
-            required_icon[key] = found[0]
-        else:
-            st.warning(f"iConnect-д '{key}' төстэй багана олдсонгүй")
-
-    if not required_icon['Одоогийн REMAX дэх албан тушаал']:
-        st.error("Алдаа: iConnect файлд 'Одоогийн RE/MAX дэх албан тушаал' багана байхгүй. Дээрх жагсаалтаас харна уу.")
+    if position_col not in icon_df.columns:
+        st.error(f"iConnect-д '{position_col}' гэсэн багана олдсонгүй.\n\nУншигдсан баганууд:\n" + "\n".join(icon_df.columns.tolist()))
         st.stop()
-
-    # Стандарт нэр өгөх
-    icon_df = icon_df.rename(columns={
-        required_icon['Агентын нэр']: 'Агентын нэр',
-        required_icon['Оффисын нэр']: 'Оффисын нэр',
-        required_icon['Агент идэвхгүй болсон']: 'Агент идэвхгүй болсон',
-        required_icon['Одоогийн REMAX дэх албан тушаал']: 'Position'
-    })
 
     icon_df['clean_name'] = icon_df['Агентын нэр'].astype(str).str.replace(r'\s*\(Transferred\)', '', regex=True).str.strip()
     icon_df['norm_name'] = icon_df['clean_name'].str.lower().str.strip()
@@ -109,7 +88,7 @@ if max_file and icon_file:
     max_names_set = set(max_df['norm_name'])
     to_create = icon_df[
         icon_df['is_active'] &
-        icon_df['Position'].astype(str).str.contains('Associate', case=False, na=False) &
+        icon_df[position_col].astype(str).str.contains('Associate', case=False, na=False) &
         ~icon_df['norm_name'].isin(max_names_set)
     ]
 
@@ -130,7 +109,7 @@ if max_file and icon_file:
     with tabs[3]: st.dataframe(to_check[['Constituent ID', 'full_name', 'Office Name']].reset_index(drop=True))
     with tabs[4]: st.dataframe(to_create[['Агентын нэр', 'Оффисын нэр', 'Гар утас', 'Имэйл']].reset_index(drop=True))
 
-    # Excel татах (өмнөхтэй адил)
+    # Excel татах
     def to_excel():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
