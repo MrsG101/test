@@ -128,4 +128,17 @@ if max_file and icon_file:
             correct.to_excel(writer, 'Зөв + Owner', index=False)
             to_update.to_excel(writer, 'Оффис засах', index=False)
             to_delete.to_excel(writer, 'Гарсан тул устгах', index=False)
-            to_check.to_excel(writer, 'Ш
+            to_check.to_excel(writer, 'Шалгах олдоогүй', index=False)
+            to_create.to_excel(writer, 'Шинээр нээх', index=False)
+        output.seek(0)
+        return output.getvalue()
+
+    st.download_button(
+        label="📥 Бүх үр дүнг Excel-ээр татах",
+        data=to_excel(),
+        file_name="agent_tulgalt_result.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+else:
+    st.info("Хоёр файлыг оруулна уу.")
