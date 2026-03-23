@@ -71,7 +71,7 @@ if max_file and icon_file:
         required_icon['Агентын нэр']: 'Агентын нэр',
         required_icon['Оффисын нэр']: 'Оффисын нэр',
         required_icon['Агент идэвхгүй болсон']: 'Агент идэвхгүй болсон',
-        required_icon['Одоогийн RE/MAX дэх албан тушаал']: 'Position'
+        required_icon['Одоогийн REMAX дэх албан тушаал']: 'Position'
     })
 
     icon_df['clean_name'] = icon_df['Агентын нэр'].astype(str).str.replace(r'\s*\(Transferred\)', '', regex=True).str.strip()
