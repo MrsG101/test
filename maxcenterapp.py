@@ -3,15 +3,15 @@ import pandas as pd
 from io import BytesIO
 
 st.set_page_config(page_title="Агент Тулгах Tool", layout="wide")
-st.title("Maxcenter vs iConnect Агент Тулгах Tool")
-st.markdown("**iConnect** нь үндсэн эх сурвалж. Maxcenter-ийг тулгаж засвар/устгах/нээх жагсаалт гаргана.")
+st.title("Maxcenter болон iсonnect хэрэглэгчийн мэдээллийг тулгах tool")
+st.markdown("iConnect болон Maxcenter-ийн хэрэглэгчийн тайланд суурилан зөрүүтэй хэрэглэгчдийг гаргана.")
 
 # Файл оруулах
 col1, col2 = st.columns(2)
 with col1:
-    max_file = st.file_uploader("Maxcenter файл (xlsx)", type=["xlsx"])
+    max_file = st.file_uploader("Maxcenter файл оруулах (xlsx)", type=["xlsx"])
 with col2:
-    icon_file = st.file_uploader("iConnect файл (xls / xlsx / html)", type=["xls", "xlsx", "html"])
+    icon_file = st.file_uploader("iconnect файл оруулах (xls / xlsx)", type=["xls", "xlsx"])
 
 if max_file and icon_file:
     # ────────────────────────────── MAXCENTER ──────────────────────────────
@@ -134,11 +134,11 @@ if max_file and icon_file:
         return output.getvalue()
 
     st.download_button(
-        label="📥 Бүх үр дүнг Excel-ээр татах",
+        label="📥 Бүх үр дүнг excel-ээр татах",
         data=to_excel(),
         file_name="agent_tulgalt_result.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 else:
-    st.info("Хоёр файлыг оруулна уу.")
+    st.info("хоёр файлаа оруулна уу.")
