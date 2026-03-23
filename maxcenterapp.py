@@ -17,11 +17,11 @@ if max_file and icon_file:
     # ────────────────────────────── MAXCENTER ──────────────────────────────
     max_df = pd.read_excel(max_file, sheet_name="Roster", header=2)
 
-    # Баганын нэрийг зөөлөн цэвэрлэх
-    max_df.columns = [str(c).strip().replace('\n', '').replace('\r', '') for c in max_df.columns]
+    # Баганын нэрийг цэвэрлэх
+    max_df.columns = [str(c).strip().replace('\n', '').replace('\r', '').replace('  ', ' ') for c in max_df.columns]
 
     # Шаардлагатай баганууд шалгах
-    required = ['First Name', 'Last Name', 'Office Name', 'Role']
+    required = ['First Name', 'Last Name', 'Office Name', 'Role', 'Constituent ID']
     missing = [c for c in required if c not in max_df.columns]
     if missing:
         st.error(f"Maxcenter-д дараах баганууд олдсонгүй: {missing}\n\nУншигдсан баганууд:\n" + "\n".join(max_df.columns))
@@ -43,14 +43,13 @@ if max_file and icon_file:
     except:
         icon_df = pd.read_html(BytesIO(icon_bytes))[0]
 
-    # Баганын нэрийг зөөлөн цэвэрлэх
-    icon_df.columns = [str(c).strip().replace('\n', '').replace('\r', '') for c in icon_df.columns]
+    icon_df.columns = [str(c).strip().replace('\n', '').replace('\r', '').replace('  ', ' ') for c in icon_df.columns]
 
-    # Яг таны хэлсэн нэрээр шууд ашиглах
-    position_col = 'Одоогийн REMAX дэх албан тушаал'
-
-    if position_col not in icon_df.columns:
-        st.error(f"iConnect-д '{position_col}' гэсэн багана олдсонгүй.\n\nУншигдсан баганууд:\n" + "\n".join(icon_df.columns.tolist()))
+    # Шаардлагатай баганууд шалгах
+    icon_required = ['Агентын нэр', 'Оффисын нэр', 'Агент идэвхгүй болсон', 'Одоогийн REMAX дэх албан тушаал']
+    icon_missing = [c for c in icon_required if c not in icon_df.columns]
+    if icon_missing:
+        st.error(f"iConnect-д дараах баганууд олдсонгүй: {icon_missing}\n\nУншигдсан баганууд:\n" + "\n".join(icon_df.columns))
         st.stop()
 
     icon_df['clean_name'] = icon_df['Агентын нэр'].astype(str).str.replace(r'\s*\(Transferred\)', '', regex=True).str.strip()
@@ -61,25 +60,32 @@ if max_file and icon_file:
     # ────────────────────────────── ТУЛГАХ ──────────────────────────────
     def classify(row):
         name_norm = row['norm_name']
-        office = row['Office Name']
+        office_max = row['Office Name']
         role = row['Role'].upper()
 
         if 'OWNER' in role:
             return 'Зөв + Owner', None
 
         matches = icon_df[icon_df['norm_name'] == name_norm]
-        active = matches[matches['is_active']]
+        active_matches = matches[matches['is_active']]
 
-        if active.empty:
-            return ('Гарсан тул устгах' if not matches.empty else 'Шалгах олдоогүй'), None
+        if active_matches.empty:
+            if not matches.empty:
+                return 'Гарсан тул устгах', None
+            else:
+                return 'Шалгах олдоогүй', None
 
-        if office in active['Оффисын нэр'].values:
+        active_offices = active_matches['Оффисын нэр'].str.strip()
+
+        if office_max in active_offices.values:
             return 'Зөв + Owner', None
         else:
-            return 'Оффис засах', active.iloc[0]['Оффисын нэр']
+            suggested = active_matches.iloc[0]['Оффисын нэр'].strip()
+            return 'Оффис засах', suggested
 
     max_df[['status', 'suggested_office']] = max_df.apply(classify, axis=1, result_type='expand')
 
+    # Ангилал
     correct     = max_df[max_df['status'] == 'Зөв + Owner']
     to_update   = max_df[max_df['status'] == 'Оффис засах']
     to_delete   = max_df[max_df['status'] == 'Гарсан тул устгах']
@@ -87,9 +93,9 @@ if max_file and icon_file:
 
     max_names_set = set(max_df['norm_name'])
     to_create = icon_df[
-        icon_df['is_active'] &
-        icon_df[position_col].astype(str).str.contains('Associate', case=False, na=False) &
-        ~icon_df['norm_name'].isin(max_names_set)
+        (icon_df['is_active']) &
+        (icon_df['Одоогийн REMAX дэх албан тушаал'].astype(str).str.contains('Associate', case=False, na=False)) &
+        (~icon_df['norm_name'].isin(max_names_set))
     ]
 
     # Тоо харуулах
@@ -103,11 +109,16 @@ if max_file and icon_file:
 
     tabs = st.tabs(["Зөв + Owner", "Оффис засах", "Гарсан тул устгах", "Шалгах", "Шинээр нээх"])
 
-    with tabs[0]: st.dataframe(correct[['Constituent ID', 'full_name', 'Office Name', 'Role']].reset_index(drop=True))
-    with tabs[1]: st.dataframe(to_update[['Constituent ID', 'full_name', 'Office Name', 'suggested_office']].reset_index(drop=True))
-    with tabs[2]: st.dataframe(to_delete[['Constituent ID', 'full_name', 'Office Name']].reset_index(drop=True))
-    with tabs[3]: st.dataframe(to_check[['Constituent ID', 'full_name', 'Office Name']].reset_index(drop=True))
-    with tabs[4]: st.dataframe(to_create[['Агентын нэр', 'Оффисын нэр', 'Гар утас', 'Имэйл']].reset_index(drop=True))
+    with tabs[0]:
+        st.dataframe(correct[['Constituent ID', 'full_name', 'Office Name', 'Role', 'status']].reset_index(drop=True))
+    with tabs[1]:
+        st.dataframe(to_update[['Constituent ID', 'full_name', 'Office Name', 'suggested_office', 'status']].reset_index(drop=True))
+    with tabs[2]:
+        st.dataframe(to_delete[['Constituent ID', 'full_name', 'Office Name', 'status']].reset_index(drop=True))
+    with tabs[3]:
+        st.dataframe(to_check[['Constituent ID', 'full_name', 'Office Name', 'status']].reset_index(drop=True))
+    with tabs[4]:
+        st.dataframe(to_create[['Агентын нэр', 'Оффисын нэр', 'Гар утас', 'Имэйл']].reset_index(drop=True))
 
     # Excel татах
     def to_excel():
@@ -117,12 +128,4 @@ if max_file and icon_file:
             correct.to_excel(writer, 'Зөв + Owner', index=False)
             to_update.to_excel(writer, 'Оффис засах', index=False)
             to_delete.to_excel(writer, 'Гарсан тул устгах', index=False)
-            to_check.to_excel(writer, 'Шалгах олдоогүй', index=False)
-            to_create.to_excel(writer, 'Шинээр нээх', index=False)
-        output.seek(0)
-        return output.getvalue()
-
-    st.download_button("📥 Бүх үр дүнг татах", to_excel(), "agent_tulgalt_result.xlsx")
-
-else:
-    st.info("Хоёр файлыг оруулна уу.")
+            to_check.to_excel(writer, 'Ш
