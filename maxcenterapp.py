@@ -62,7 +62,7 @@ if max_file and icon_file:
         else:
             st.warning(f"iConnect-д '{key}' төстэй багана олдсонгүй")
 
-    if not required_icon['Одоогийн RE/MAX дэх албан тушаал']:
+    if not required_icon['Одоогийн REMAX дэх албан тушаал']:
         st.error("Алдаа: iConnect файлд 'Одоогийн RE/MAX дэх албан тушаал' багана байхгүй. Дээрх жагсаалтаас харна уу.")
         st.stop()
 
