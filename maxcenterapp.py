@@ -55,7 +55,7 @@ if max_file and icon_file:
     icon_df['clean_name'] = icon_df['Агентын нэр'].astype(str).str.replace(r'\s*\(Transferred\)', '', regex=True).str.strip()
     icon_df['norm_name'] = icon_df['clean_name'].str.lower().str.strip()
     icon_df['is_active'] = icon_df['Агент идэвхгүй болсон'].astype(str).str.strip() == 'No'
-    icon_df['Оффисын нэр'] = icon_df['Оффисын нэр'].astype(str).str.replace('REMAX', 'RE/MAX ', regex=False).str.strip()
+    icon_df['Оффисын нэр'] = icon_df['Оффисын нэр'].astype(str).str.replace('REMAX', 'RE/MAX', regex=False).str.strip()
 
     # ────────────────────────────── ТУЛГАХ ──────────────────────────────
     def classify(row):
