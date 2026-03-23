@@ -30,7 +30,7 @@ with col2:
 
 if max_file is not None and icon_file is not None:
     # ---------- Maxcenter унших ----------
-        try:
+    try:
         max_df = pd.read_excel(max_file, sheet_name="Roster", header=1)
     except Exception as e:
         st.error(f"Maxcenter файлыг уншихад алдаа гарлаа: {e}")
