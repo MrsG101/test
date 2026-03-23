@@ -4,7 +4,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="Агент Тулгах Tool", layout="wide")
 st.title("Maxcenter болон iсonnect хэрэглэгчийн мэдээллийг тулгах tool")
-st.markdown("iConnect болон Maxcenter-ийн хэрэглэгчийн тайланд суурилан зөрүүтэй хэрэглэгчдийг гаргана.")
+st.markdown("iconnect болон maxcenter-ийн хэрэглэгчийн тайланд суурилан зөрүүтэй хэрэглэгчдийг гаргана.")
 
 # Файл оруулах
 col1, col2 = st.columns(2)
