@@ -75,7 +75,7 @@ if max_file is not None and icon_file is not None:
     # iConnect цэвэрлэгээ
     if "Агентын нэр" in icon_df.columns:
         icon_df["clean_name"] = icon_df["Агентын нэр"].astype(str)\
-            .str.replace(r"\s*\(Transferred\)", "", regex=True)\
+            .str.replace(r"\s*\( Transferred\)", "", regex=True)\
             .str.strip()
         icon_df["norm_name"] = icon_df["clean_name"].str.lower().str.strip()
 
