@@ -1,114 +1,165 @@
 import streamlit as st
+import pandas as pd
+import plotly.express as px
+from filter import global_filter
 
-st.set_page_config(
-    layout="wide",
-    page_title="Өвөрхангай осол гэмтлийн судалгаа"
-)
+st.set_page_config(layout="wide")
 
-# ===== STYLE =====
-st.markdown("""
-<style>
-.title{
-    font-size:34px;
-    font-weight:700;
-    text-align:center;
-}
-.section{
-    font-size:22px;
-    font-weight:600;
-    margin-top:20px;
-}
-.text{
-    font-size:16px;
-    line-height:1.6;
-}
-</style>
-""", unsafe_allow_html=True)
+# ===== DATA LOAD =====
+@st.cache_data
+def load():
+    df = pd.read_excel("health_data.xlsx")
 
-# ===== TITLE =====
-st.markdown(
-'<div class="title">ӨВӨРХАНГАЙ АЙМАГТ БҮРТГЭГДСЭН ОСОЛ ГЭМТЭЛ, '
-'ГАДНЫ ШАЛТГААНТ ӨВЧЛӨЛ, НАС БАРАЛТЫН БАЙДАЛД ХИЙСЭН '
-'ТАРХВАР ЗҮЙН СУДАЛГАА</div>',
-unsafe_allow_html=True
-)
+    df.columns = df.columns.str.strip()
 
-st.caption("""
-Д.Нацагням, М.Ганцэцэг, Я.Жаргал  
-Өвөрхангай аймгийн Эрүүл мэндийн газар
-""")
+    df["Үзүүлсэн огноо"] = pd.to_datetime(df["Үзүүлсэн огноо"], errors="coerce")
+    df["year"] = df["Үзүүлсэн огноо"].dt.year
+    df["month"] = df["Үзүүлсэн огноо"].dt.month
+
+    return df
+
+df = load()
+
+# ===== GLOBAL FILTER =====
+df = global_filter(df)
+
+st.title("Осол гэмтлийн ерөнхий тархвар зүйн шинж")
+
+total = len(df)
+
+# ===== KPI =====
+col1,col2,col3,col4 = st.columns(4)
+
+col1.metric("Нийт тохиолдол", total)
+
+death = df["Нас барсан эсэх"].eq("Нас барсан").sum()
+death_rate = round(death/total*100,1) if total>0 else 0
+
+col2.metric("Нас барсан", death)
+col3.metric("Нас баралтын хувь %", death_rate)
+
+alcohol = df["Гэмтэл авах үедээ согтууруулах ундаа хэрэглэсэн эсэх"].eq("Тийм").sum()
+alcohol_rate = round(alcohol/total*100,1) if total>0 else 0
+
+col4.metric("Согтууруулах холбоотой %", alcohol_rate)
 
 st.divider()
 
-# ===== ЗОРИЛГО =====
-st.markdown('<div class="section">Судалгааны ажлын зорилго</div>', unsafe_allow_html=True)
+# ==========================================================
+# НАСНЫ БҮЛЭГ
+# ==========================================================
+st.subheader("Насны бүлгээр")
 
-st.markdown(
-'<div class="text">Өвөрхангай аймгийн хэмжээнд 2021–2025 онд бүртгэгдсэн '
-'осол гэмтэл, гадны шалтгаант өвчлөл, нас баралтын тархвар зүйн онцлогийг '
-'судлахад оршино.</div>',
-unsafe_allow_html=True
+age = df["Насны бүлгээр"].value_counts().reset_index()
+age.columns = ["Насны бүлэг","count"]
+age["percent"] = round(age["count"]/total*100,1)
+
+fig_age = px.bar(
+    age,
+    x="Насны бүлэг",
+    y="count",
+    text="percent"
 )
 
-# ===== ЗОРИЛТ =====
-st.markdown('<div class="section">Судалгааны ажлын зорилт</div>', unsafe_allow_html=True)
+fig_age.update_traces(texttemplate="%{text}%", textposition="outside")
 
-st.markdown("""
-<div class="text">
-1. Осол гэмтэл, гадны шалтгаант өвчлөлийн тархвар зүйн онцлогийг судлах<br>
-2. Осол гэмтэл, гадны шалтгаант нас баралтын тархвар зүйн онцлогийг судлах
-</div>
-""", unsafe_allow_html=True)
+st.plotly_chart(fig_age, use_container_width=True)
 
-# ===== МАТЕРИАЛ АРГА ЗҮЙ =====
-st.markdown('<div class="section">Материал, арга зүй</div>', unsafe_allow_html=True)
+# ==========================================================
+# ХҮЙС
+# ==========================================================
+st.subheader("Хүйс")
 
-st.markdown("""
-<div class="text">
-• Судалгааны загвар: Аналитик судалгааны ретроспектив кохорт загвараар уг судалгааг хийж гүйцэтгэлээ.<br><br>
+gender = df["Хүйс"].value_counts().reset_index()
+gender.columns = ["Хүйс","count"]
 
-• Судалгааны арга: Тоон судалгааны аргаар эрүүл мэндийн цахим H-Info V3.0 программд 
-халдварт бус өвчлөлийн АМ-6 болон нас баралтын АМ-7 маягтын дагуу бүртгэгдсэн 
-осол гэмтэл, гадны шалтгаант өвчлөл, нас баралтын тоон мэдээ болон 
-“Осол гэмтлийн тохиолдлыг бүртгэх маягт”-аар бүртгэсэн мэдээллийг ашиглан 
-дүн шинжилгээ хийсэн.<br><br>
+fig_gender = px.pie(
+    gender,
+    names="Хүйс",
+    values="count"
+)
 
-• Статистик боловсруулалт: Осол гэмтэл, гадны шалтгаант өвчлөл, нас баралтын түвшинг 
-10000 хүн амд тооцож, хүйс, насны бүлэг, шалтгааны бүлэг, оношийн бүлгээр ангилан 
-харьцуулсан байдлаар дүн шинжилгээ хийсэн.
-</div>
-""", unsafe_allow_html=True)
+fig_gender.update_traces(textinfo="percent+label")
 
-# ===== ДҮГНЭЛТ =====
-st.markdown('<div class="section">Дүгнэлт</div>', unsafe_allow_html=True)
+st.plotly_chart(fig_gender, use_container_width=True)
 
-st.markdown("""
-<div class="text">
-1. 2025 онд осол гэмтлийн шалтгаант өвчлөл өмнөх оны мөн үеэс 28.9%-иар өссөн. 
-Өвчлөлд өртсөн 10 хүн тутмын 7 нь эрэгтэй байна. Уналтын шалтгаант өвчлөлийн 53.3% нь 
-эмэгтэйчүүд байна.<br><br>
+# ==========================================================
+# СУМ (GRAPH HEAT STYLE)
+# ==========================================================
+st.subheader("Сумаар тархалт")
 
-2. Өвчлөлийн 27%-ийг уналтын шалтгаан эзэлж байгаа бол 25.8%-ийг зам тээврийн осол эзэлж байна. 
-Зам тээврийн ослын 36.4% нь мотоциклтой зорчигчтой холбоотой байна.<br><br>
+soum = df["SOUM"].value_counts().head(15).reset_index()
+soum.columns = ["Сум","count"]
+soum["percent"] = round(soum["count"]/total*100,1)
 
-3. Нас баралт өмнөх оны мөн үеэс 39.6%-иар өссөн. Нас баралтын тэргүүлэх шалтгаанд 
-амиа хорлолт 26.7%, зам тээврийн осол 27.7%-ийг эзэлж байна.
-</div>
-""", unsafe_allow_html=True)
+fig_soum = px.bar(
+    soum,
+    x="count",
+    y="Сум",
+    orientation="h",
+    text="percent",
+    color="count",
+    color_continuous_scale="Reds"
+)
 
-# ===== ЦААШИД =====
-st.markdown('<div class="section">Цаашид хэрэгжүүлэх арга хэмжээ</div>', unsafe_allow_html=True)
+fig_soum.update_traces(texttemplate="%{text}%", textposition="outside")
 
-st.markdown("""
-<div class="text">
-• Осол гэмтлийн эрсдэлт хүчин зүйлийг бууруулах салбар дундын зөвлөл байгуулах<br>
-• Иргэдэд сэрэмжлүүлэг мэдээллийг тогтмол хүргэх<br>
-• Явган зорчигч, хөгжлийн бэрхшээлтэй иргэдэд ээлтэй орчин бүрдүүлэх<br>
-• Зам талбайн стандарт, гэрэлтүүлэг, камерын хяналтыг сайжруулах<br>
-• Цас мөсийг цэвэрлэх, анхааруулах тэмдэг байрлуулах<br>
-• Хүүхдийн аюулгүй орчин, хараа хяналтыг сайжруулах<br>
-• Зэрлэг нохойн тоог бууруулах арга хэмжээ авах
-</div>
-""", unsafe_allow_html=True)
+st.plotly_chart(fig_soum, use_container_width=True)
 
-st.info("⬅️ Зүүн талын цэсээс судалгааны аналитик хуудсуудыг сонгоно уу.")
+# ==========================================================
+# АЖИЛ МЭРГЭЖИЛ
+# ==========================================================
+st.subheader("Албан тушаал / ажил мэргэжил")
+
+job = df["Албан тушаал"].value_counts().head(10).reset_index()
+job.columns = ["Ажил","count"]
+job["percent"] = round(job["count"]/total*100,1)
+
+fig_job = px.bar(
+    job,
+    x="count",
+    y="Ажил",
+    orientation="h",
+    text="percent"
+)
+
+fig_job.update_traces(texttemplate="%{text}%", textposition="outside")
+
+st.plotly_chart(fig_job, use_container_width=True)
+
+# ==========================================================
+# ОСОЛ БОЛСОН БАЙРШИЛ
+# ==========================================================
+st.subheader("Осол болсон байршил")
+
+place = df["Осол гарах үеийн байршил"].value_counts().reset_index()
+place.columns = ["Байршил","count"]
+place["percent"] = round(place["count"]/total*100,1)
+
+fig_place = px.bar(
+    place,
+    x="count",
+    y="Байршил",
+    orientation="h",
+    text="percent"
+)
+
+fig_place.update_traces(texttemplate="%{text}%", textposition="outside")
+
+st.plotly_chart(fig_place, use_container_width=True)
+
+# ==========================================================
+# SEASONALITY
+# ==========================================================
+st.subheader("Сараар тархалт")
+
+season = df.groupby("month").size().reset_index(name="count")
+
+fig_season = px.line(
+    season,
+    x="month",
+    y="count",
+    markers=True
+)
+
+st.plotly_chart(fig_season, use_container_width=True)
