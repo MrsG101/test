@@ -1,29 +1,57 @@
-import json
-import plotly.express as px
+import streamlit as st
+import pandas as pd
 
-st.subheader("🇲🇳 Сумаар осол гэмтлийн тархалт")
+# ==== DATA LOAD ====
+df = pd.read_excel("health_data.xlsx")
 
-with open("mongolia_soum.geojson","r",encoding="utf-8") as f:
-    geo = json.load(f)
+df["Үзүүлсэн огноо"] = pd.to_datetime(df["Үзүүлсэн огноо"], errors="coerce")
+df["year"] = df["Үзүүлсэн огноо"].dt.year
+df["month"] = df["Үзүүлсэн огноо"].dt.month
 
-map_df = (
-    df.groupby("SOUM")
-    .size()
-    .reset_index(name="count")
-)
 
-fig = px.choropleth_mapbox(
-    map_df,
-    geojson=geo,
-    locations="SOUM",
-    featureidkey="properties.soum_code",
-    color="count",
-    color_continuous_scale="Reds",
-    mapbox_style="carto-positron",
-    zoom=5.2,
-    center={"lat":46.5,"lon":103}
-)
+# ==== FILTER FUNCTION COPY ====
+def global_filter(df):
 
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    st.sidebar.header("GLOBAL FILTER")
 
-st.plotly_chart(fig,use_container_width=True)
+    death = st.sidebar.multiselect(
+        "Нас барсан эсэх",
+        df["Нас барсан эсэх"].dropna().unique()
+    )
+
+    year = st.sidebar.multiselect(
+        "Он",
+        sorted(df["year"].dropna().unique())
+    )
+
+    month = st.sidebar.multiselect(
+        "Сар",
+        sorted(df["month"].dropna().unique())
+    )
+
+    soum = st.sidebar.multiselect(
+        "SOUM",
+        df["SOUM"].dropna().unique()
+    )
+
+    if death:
+        df = df[df["Нас барсан эсэх"].isin(death)]
+
+    if year:
+        df = df[df["year"].isin(year)]
+
+    if month:
+        df = df[df["month"].isin(month)]
+
+    if soum:
+        df = df[df["SOUM"].isin(soum)]
+
+    return df
+
+
+# ==== CALL FILTER ====
+df = global_filter(df)
+
+st.title("Ерөнхий шинж чанар")
+
+st.write("Filtered rows:", len(df))
