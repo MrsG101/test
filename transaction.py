@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("Ilist7-ийн TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -59,33 +59,21 @@ def check_errors(df):
         axis=1,
     )
 
-    # 3. MLS_ID
-    df["MLS_ID"] = df["Бүртгэлийн дугаар"].apply(mls_base)
-
     # ── Алдаа 1: TRR ID давхардал ────────────────────────────────────────────
     df["Алдаа_TRR"] = df.duplicated("TRR ID", keep=False).map({True: "Давхардсан", False: ""})
 
     # ── Алдаа 2: Агент өөр дээрээ хаасан ─────────────────────────────────────
-    # Нэг MLS_ID дээр ижил AgentID Listing TRR болон Selling TRR хоёуланд бүртгэгдсэн
-    sep = df[df["TRR Type"].isin(["Listing TRR", "Selling TRR"])].copy()
-    if len(sep) > 0:
-        agent_types = (
-            sep.groupby(["MLS_ID", "AgentID"])["TRR Type"]
-            .apply(lambda x: set(x))
-            .reset_index()
+    # Нэг Бүртгэлийн дугаар (зураастай бүтнээр) дээр ижил AgentID 2+ удаа орвол алдаа
+    agent_cnt = df.groupby(["Бүртгэлийн дугаар", "AgentID"]).size().reset_index(name="_n")
+    self_close_pairs = set(
+        zip(
+            agent_cnt[agent_cnt["_n"] >= 2]["Бүртгэлийн дугаар"],
+            agent_cnt[agent_cnt["_n"] >= 2]["AgentID"],
         )
-        self_close_pairs = set(
-            zip(
-                agent_types[agent_types["TRR Type"] == {"Listing TRR", "Selling TRR"}]["MLS_ID"],
-                agent_types[agent_types["TRR Type"] == {"Listing TRR", "Selling TRR"}]["AgentID"],
-            )
-        )
-    else:
-        self_close_pairs = set()
-
+    )
     df["Алдаа_Агент"] = df.apply(
         lambda r: "Агент өөр дээрээ хаасан"
-        if (r["MLS_ID"], r["AgentID"]) in self_close_pairs
+        if (r["Бүртгэлийн дугаар"], r["AgentID"]) in self_close_pairs
         else "",
         axis=1,
     )
@@ -115,7 +103,7 @@ def check_errors(df):
         axis=1,
     )
 
-    df.drop(columns=["_comm", "_sold", "MLS_ID"], inplace=True)
+    df.drop(columns=["_comm", "_sold"], inplace=True)
     return df
 
 
@@ -193,9 +181,9 @@ def to_excel(df_err):
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 uploaded = st.file_uploader(
-    "📂 XLS / XLSX файл оруулна уу",
+    "📂 XLS / XLSX файл сонгоно уу",
     type=["xls", "xlsx"],
-    help="TRR XML Report",
+    help="TRR XML Report файл",
 )
 
 if uploaded:
@@ -227,7 +215,7 @@ if uploaded:
     c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",
               delta=f"{n_err / n_total * 100:.1f}%", delta_color="inverse")
     c3.metric("🔁 Давхардсан TRR",    f"{n_dup:,}")
-    c4.metric("👤 Агент өөр дээрээ хаасан", f"{n_agent:,}")
+    c4.metric("👤 Агент өөрт хаасан", f"{n_agent:,}")
     c5.metric("💰 Шимтгэл зөрсөн",   f"{n_shimtg:,}")
     st.markdown("---")
 
@@ -260,11 +248,11 @@ if uploaded:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
     )
-    st.caption("Excel файлд алдаатай гүйлгээнүүдийг оруулсан")
+    st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
 
 else:
-    st.info("👆 XLS / XLSX файлаа upload хийнэ үү")
-    with st.expander("ℹ️ Алдаануудын тайлбар"):
+    st.info("👆 XLS / XLSX файл upload хийнэ үү")
+    with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
 |---|---|
@@ -274,7 +262,7 @@ else:
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
-| Шилжүүлгийн төрөл | TRR Type | Зөв хувь |
+| Шилжүүлэгийн төрөл | TRR Type | Зөв хувь |
 |---|---|---|
 | Түрээс | Listing and Selling TRR | 20%, 50%, 90% |
 | Түрээс | Listing TRR | 10%, 25%, 45% |
