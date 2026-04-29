@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+st.caption("Ilist7-ийн TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -193,9 +193,9 @@ def to_excel(df_err):
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 uploaded = st.file_uploader(
-    "📂 XLS / XLSX файл сонгоно уу",
+    "📂 XLS / XLSX файл оруулна уу",
     type=["xls", "xlsx"],
-    help="TRR XML Report файл",
+    help="TRR XML Report",
 )
 
 if uploaded:
@@ -227,7 +227,7 @@ if uploaded:
     c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",
               delta=f"{n_err / n_total * 100:.1f}%", delta_color="inverse")
     c3.metric("🔁 Давхардсан TRR",    f"{n_dup:,}")
-    c4.metric("👤 Агент өөрт хаасан", f"{n_agent:,}")
+    c4.metric("👤 Агент өөр дээрээ хаасан", f"{n_agent:,}")
     c5.metric("💰 Шимтгэл зөрсөн",   f"{n_shimtg:,}")
     st.markdown("---")
 
@@ -263,7 +263,7 @@ if uploaded:
     st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
 
 else:
-    st.info("👆 XLS / XLSX файл upload хийнэ үү")
+    st.info("👆 XLS / XLSX файлаа upload хийнэ үү")
     with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
