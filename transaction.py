@@ -119,7 +119,7 @@ def check_errors(df):
     return df
 
 
-def to_excel(df_all, df_err):
+def to_excel(df_err):
     wb = Workbook()
     thin = Side(style="thin", color="D0D0D0")
     bdr  = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -183,8 +183,7 @@ def to_excel(df_all, df_err):
         for ci, col in enumerate(df.columns, 1):
             ws.column_dimensions[get_column_letter(ci)].width = col_w.get(col, 14)
 
-    make_sheet(df_all, "Бүх мэдээлэл",     "1E3A5F", first=True)
-    make_sheet(df_err, "Алдаатай гүйлгээ", "CC0000", first=False)
+    make_sheet(df_err, "Алдаатай гүйлгээ", "CC0000", first=True)
 
     buf = BytesIO()
     wb.save(buf)
@@ -241,25 +240,18 @@ if uploaded:
     ]
     show_cols = [c for c in show_cols if c in df.columns]
 
-    tab1, tab2 = st.tabs(["🔴 Алдаатай гүйлгээ", "📋 Бүх мэдээлэл"])
+    if n_err == 0:
+        st.success("✅ Алдаатай гүйлгээ олдсонгүй!")
+    else:
+        def highlight_err(val):
+            return "background-color:#ffe0e0;color:#cc0000;font-weight:bold" if val else ""
 
-    with tab1:
-        if n_err == 0:
-            st.success("✅ Алдаатай гүйлгээ олдсонгүй!")
-        else:
-            # applymap -> map (pandas >= 2.1 / Streamlit шинэ хувилбарт)
-            def highlight_err(val):
-                return "background-color:#ffe0e0;color:#cc0000;font-weight:bold" if val else ""
-
-            styled = df_err[show_cols].style.map(highlight_err, subset=["Алдаа"])
-            st.dataframe(styled, use_container_width=True, height=500)
-
-    with tab2:
-        st.dataframe(df[show_cols], use_container_width=True, height=500)
+        styled = df_err[show_cols].style.map(highlight_err, subset=["Алдаа"])
+        st.dataframe(styled, use_container_width=True, height=500)
 
     st.markdown("---")
     with st.spinner("Excel файл бэлтгэж байна..."):
-        excel_buf = to_excel(df, df_err)
+        excel_buf = to_excel(df_err)
 
     st.download_button(
         label=f"📥 Excel татах  —  {n_err:,} алдаатай гүйлгээ",
@@ -268,7 +260,7 @@ if uploaded:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
     )
-    st.caption("Excel файлд 2 sheet: 'Бүх мэдээлэл' ба 'Алдаатай гүйлгээ'")
+    st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
 
 else:
     st.info("👆 XLS / XLSX файл upload хийнэ үү")
