@@ -260,11 +260,11 @@ if uploaded:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
     )
-    st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
+    st.caption("Excel файлд алдаатай гүйлгээнүүдийг оруулсан")
 
 else:
     st.info("👆 XLS / XLSX файлаа upload хийнэ үү")
-    with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
+    with st.expander("ℹ️ Алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
 |---|---|
