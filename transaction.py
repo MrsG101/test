@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+st.caption("ilist7 TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана.")
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -47,11 +47,8 @@ def load_file(file_bytes):
         return pd.read_excel(buf, engine="openpyxl", dtype=str)
 
 def check_errors(df):
-    # 1. ₮ replace
     for col in df.columns:
         df[col] = df[col].astype(str).str.replace(" ₮", "", regex=False).str.replace("₮", "", regex=False)
-
-    # 2. Шимтгэлийн хувь
     df["_comm"] = df["Total Commission"].apply(parse_num)
     df["_sold"]  = df["Зарагдсан үнэ"].apply(parse_num)
     df["Шимтгэлийн хувь"] = df.apply(
@@ -59,10 +56,10 @@ def check_errors(df):
         axis=1,
     )
 
-    # ── Алдаа 1: TRR ID давхардал ────────────────────────────────────────────
+    # Алдаа 1: TRR ID давхардал
     df["Алдаа_TRR"] = df.duplicated("TRR ID", keep=False).map({True: "Давхардсан", False: ""})
 
-    # ── Алдаа 2: Агент өөр дээрээ хаасан ─────────────────────────────────────
+    # Алдаа 2: Агент өөр дээрээ хаасан
     agent_cnt = df.groupby(["Бүртгэлийн дугаар", "AgentID"]).size().reset_index(name="_n")
     self_close_pairs = set(
         zip(
@@ -77,7 +74,7 @@ def check_errors(df):
         axis=1,
     )
 
-    # ── Алдаа 3: Шимтгэл зөрсөн ─────────────────────────────────────────────
+    # Алдаа 3: Шимтгэл зөрсөн 
     VALID = {
         ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
         ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
@@ -92,7 +89,6 @@ def check_errors(df):
     }
 
     def is_latin_duureg(val):
-        """Дүүрэг нь зөвхөн латин үсгээр бичигдсэн эсэхийг шалгана (кирилл огт байхгүй)"""
         s = str(val).strip()
         if not s or s.lower() == "nan":
             return False
@@ -107,7 +103,6 @@ def check_errors(df):
 
         pct = float(row["Шимтгэлийн хувь"])
 
-        # Latin Дүүрэг + Худалдах → НӨАТ-тай шимтгэл шалгах
         if (
             is_latin_duureg(row.get("Дүүрэг", ""))
             and row["Шилжүүлэгийн төрөл"] == "Худалдах"
@@ -115,13 +110,10 @@ def check_errors(df):
         ):
             target = NOVAT_VALID[row["TRR Type"]]
             return "" if abs(pct - target) < 0.01 else "Шимтгэл зөрсөн"
-
-        # Энгийн шалгалт
         return "Шимтгэл зөрсөн" if round(pct, 1) not in VALID[key] else ""
 
     df["Алдаа_Шимтгэл"] = df.apply(shimtgel_err, axis=1)
 
-    # ── Нийт алдаа ───────────────────────────────────────────────────────────
     df["Алдаа"] = df.apply(
         lambda r: " | ".join(
             p for p in [r["Алдаа_TRR"], r["Алдаа_Агент"], r["Алдаа_Шимтгэл"]] if p
@@ -131,7 +123,6 @@ def check_errors(df):
 
     df.drop(columns=["_comm", "_sold"], inplace=True)
     return df
-
 
 def to_excel(df_err):
     wb = Workbook()
@@ -207,7 +198,7 @@ def to_excel(df_err):
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 uploaded = st.file_uploader(
-    "📂 XLS / XLSX файл сонгоно уу",
+    "XLS / XLSX файл оруулна уу",
     type=["xls", "xlsx"],
     help="TRR XML Report файл",
 )
@@ -241,7 +232,7 @@ if uploaded:
     c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",
               delta=f"{n_err / n_total * 100:.1f}%", delta_color="inverse")
     c3.metric("🔁 Давхардсан TRR",    f"{n_dup:,}")
-    c4.metric("👤 Агент өөрт хаасан", f"{n_agent:,}")
+    c4.metric("👤 Агент өөр дээрээ хаасан", f"{n_agent:,}")
     c5.metric("💰 Шимтгэл зөрсөн",   f"{n_shimtg:,}")
     st.markdown("---")
 
@@ -268,7 +259,7 @@ if uploaded:
         excel_buf = to_excel(df_err)
 
     st.download_button(
-        label=f"📥 Excel татах  —  {n_err:,} алдаатай гүйлгээ",
+        label=f"Excel татах  —  {n_err:,} алдаатай гүйлгээ",
         data=excel_buf,
         file_name="trr_aldaa_shalgah.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -277,14 +268,14 @@ if uploaded:
     st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
 
 else:
-    st.info("👆 XLS / XLSX файл upload хийнэ үү")
-    with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
+    st.info("XLS / XLSX файл upload хийнэ үү")
+    with st.expander("ℹ️Алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
 |---|---|
 | **Давхардсан** | TRR ID давхардсан байна |
 | **Агент өөр дээрээ хаасан** | Нэг MLS ID дээр ижил AgentID **Listing TRR болон Selling TRR хоёуланд** бүртгэгдсэн |
-| **Шимтгэл зөрсөн** | Шимтгэлийн хувь зөвшөөрөгдсөн утгаас зөрсөн |
+| **Шимтгэл зөрсөн** | Шимтгэлийн хувь журам дээрх шимтгэлийн үндсэн хувиас зөрсөн |
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
@@ -292,8 +283,8 @@ else:
 |---|---|---|---|
 | Түрээс | Listing and Selling TRR | Аль ч | 20%, 50%, 90% |
 | Түрээс | Listing TRR | Аль ч | 10%, 25%, 45% |
-| Худалдах | Listing and Selling TRR | Кирилл | 3%, 5% |
+| Худалдах | Listing and Selling TRR | Монгол | 3%, 5% |
 | Худалдах | Listing TRR | Кирилл | 1.5%, 2.5% |
-| Худалдах | Listing and Selling TRR | **Латин** | **≈5.45%** (6÷1.1, НӨАТ-тай) |
-| Худалдах | Listing TRR | **Латин** | **≈2.73%** (3÷1.1, НӨАТ-тай) |
+| Худалдах | Listing and Selling TRR | **Дубай** | **≈5.45%** (6÷1.1, НӨАТ-тай) |
+| Худалдах | Listing TRR | **Дубай** | **≈2.73%** (3÷1.1, НӨАТ-тай) |
 """)
