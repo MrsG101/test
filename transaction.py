@@ -56,10 +56,8 @@ def check_errors(df):
         axis=1,
     )
 
-    # Алдаа 1: TRR ID давхардал
     df["Алдаа_TRR"] = df.duplicated("TRR ID", keep=False).map({True: "Давхардсан", False: ""})
 
-    # Алдаа 2: Агент өөр дээрээ хаасан
     agent_cnt = df.groupby(["Бүртгэлийн дугаар", "AgentID"]).size().reset_index(name="_n")
     self_close_pairs = set(
         zip(
@@ -74,7 +72,6 @@ def check_errors(df):
         axis=1,
     )
 
-    # Алдаа 3: Шимтгэл зөрсөн 
     VALID = {
         ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
         ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
@@ -82,7 +79,6 @@ def check_errors(df):
         ("Худалдах", "Listing TRR"):             {1.5,  2.5},
     }
 
-    # НӨАТ-тай зөв хувиуд (6/1.1, 3/1.1) — 0.01 хүлцэлтэй
     NOVAT_VALID = {
         "Listing and Selling TRR": 6 / 1.1,   # ≈ 5.4545...
         "Listing TRR":             3 / 1.1,   # ≈ 2.7272...
