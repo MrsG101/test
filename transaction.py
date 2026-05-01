@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("ilist7 TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана.")
+st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана.")
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 def parse_num(v):
