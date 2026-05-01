@@ -63,7 +63,6 @@ def check_errors(df):
     df["Алдаа_TRR"] = df.duplicated("TRR ID", keep=False).map({True: "Давхардсан", False: ""})
 
     # ── Алдаа 2: Агент өөр дээрээ хаасан ─────────────────────────────────────
-    # Нэг Бүртгэлийн дугаар (зураастай бүтнээр) дээр ижил AgentID 2+ удаа орвол алдаа
     agent_cnt = df.groupby(["Бүртгэлийн дугаар", "AgentID"]).size().reset_index(name="_n")
     self_close_pairs = set(
         zip(
@@ -86,12 +85,39 @@ def check_errors(df):
         ("Худалдах", "Listing TRR"):             {1.5,  2.5},
     }
 
+    # НӨАТ-тай зөв хувиуд (6/1.1, 3/1.1) — 0.01 хүлцэлтэй
+    NOVAT_VALID = {
+        "Listing and Selling TRR": 6 / 1.1,   # ≈ 5.4545...
+        "Listing TRR":             3 / 1.1,   # ≈ 2.7272...
+    }
+
+    def is_latin_duureg(val):
+        """Дүүрэг нь зөвхөн латин үсгээр бичигдсэн эсэхийг шалгана (кирилл огт байхгүй)"""
+        s = str(val).strip()
+        if not s or s.lower() == "nan":
+            return False
+        has_latin    = bool(re.search(r'[a-zA-Z]', s))
+        has_cyrillic = bool(re.search(r'[а-яА-ЯөүёӨҮЁ]', s))
+        return has_latin and not has_cyrillic
+
     def shimtgel_err(row):
         key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
         if key not in VALID:
             return ""
-        pct = round(float(row["Шимтгэлийн хувь"]), 1)
-        return "Шимтгэл зөрсөн" if pct not in VALID[key] else ""
+
+        pct = float(row["Шимтгэлийн хувь"])
+
+        # Latin Дүүрэг + Худалдах → НӨАТ-тай шимтгэл шалгах
+        if (
+            is_latin_duureg(row.get("Дүүрэг", ""))
+            and row["Шилжүүлэгийн төрөл"] == "Худалдах"
+            and row["TRR Type"] in NOVAT_VALID
+        ):
+            target = NOVAT_VALID[row["TRR Type"]]
+            return "" if abs(pct - target) < 0.01 else "Шимтгэл зөрсөн"
+
+        # Энгийн шалгалт
+        return "Шимтгэл зөрсөн" if round(pct, 1) not in VALID[key] else ""
 
     df["Алдаа_Шимтгэл"] = df.apply(shimtgel_err, axis=1)
 
@@ -223,7 +249,7 @@ if uploaded:
         "TRR ID", "TRR Type", "Шилжүүлэгийн төрөл",
         "Үл хөдлөх хөрөнгийн хаяг", "Зарагдсан үнэ",
         "Total Commission", "Шимтгэлийн хувь",
-        "AgentID", "Агент", "Бүртгэлийн дугаар",
+        "AgentID", "Агент", "Бүртгэлийн дугаар", "Дүүрэг",
         "Алдаа_TRR", "Алдаа_Агент", "Алдаа_Шимтгэл", "Алдаа",
     ]
     show_cols = [c for c in show_cols if c in df.columns]
@@ -262,10 +288,12 @@ else:
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
-| Шилжүүлэгийн төрөл | TRR Type | Зөв хувь |
-|---|---|---|
-| Түрээс | Listing and Selling TRR | 20%, 50%, 90% |
-| Түрээс | Listing TRR | 10%, 25%, 45% |
-| Худалдах | Listing and Selling TRR | 3%, 5% |
-| Худалдах | Listing TRR | 1.5%, 2.5% |
+| Шилжүүлэгийн төрөл | TRR Type | Дүүрэг | Зөв хувь |
+|---|---|---|---|
+| Түрээс | Listing and Selling TRR | Аль ч | 20%, 50%, 90% |
+| Түрээс | Listing TRR | Аль ч | 10%, 25%, 45% |
+| Худалдах | Listing and Selling TRR | Кирилл | 3%, 5% |
+| Худалдах | Listing TRR | Кирилл | 1.5%, 2.5% |
+| Худалдах | Listing and Selling TRR | **Латин** | **≈5.45%** (6÷1.1, НӨАТ-тай) |
+| Худалдах | Listing TRR | **Латин** | **≈2.73%** (3÷1.1, НӨАТ-тай) |
 """)
