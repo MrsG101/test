@@ -118,18 +118,35 @@ if max_file and icon_file:
     with tabs[3]:
         st.dataframe(to_check[['Constituent ID', 'full_name', 'Office Name', 'status']].reset_index(drop=True))
     with tabs[4]:
-        st.dataframe(to_create[['Агентын нэр', 'Оффисын нэр', 'Гар утас', 'Имэйл']].reset_index(drop=True))
+        # iconnect-д байгаа баганууд байгаа эсэхийг шалгах
+        create_cols = [c for c in ['Агентын нэр', 'Оффисын нэр', 'Гар утас', 'Имэйл'] if c in to_create.columns]
+        st.dataframe(to_create[create_cols].reset_index(drop=True))
 
     # Excel татах
     def to_excel():
         output = BytesIO()
+
+        # Бичих sheet-үүдийг бэлдэх — хоосон биш байх ёстой
+        sheets = {
+            'Бүх Maxcenter + Status': max_df,
+            'Зөв + Owner': correct,
+            'Оффис засах': to_update,
+            'Гарсан тул устгах': to_delete,
+            'Шалгах олдоогүй': to_check,
+            'Шинээр нээх': to_create,
+        }
+
+        # Дор хаяж нэг sheet хоосон биш байх ёстой тул шүүж бэлдэх
+        non_empty_sheets = {name: df for name, df in sheets.items() if not df.empty}
+
+        # Бүх sheet хоосон байвал placeholder нэмэх
+        if not non_empty_sheets:
+            non_empty_sheets['Үр дүн'] = pd.DataFrame({'Мэдээлэл': ['Үр дүн олдсонгүй']})
+
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            max_df.to_excel(writer, 'Бүх Maxcenter + Status', index=False)
-            correct.to_excel(writer, 'Зөв + Owner', index=False)
-            to_update.to_excel(writer, 'Оффис засах', index=False)
-            to_delete.to_excel(writer, 'Гарсан тул устгах', index=False)
-            to_check.to_excel(writer, 'Шалгах олдоогүй', index=False)
-            to_create.to_excel(writer, 'Шинээр нээх', index=False)
+            for sheet_name, df in non_empty_sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
         output.seek(0)
         return output.getvalue()
 
