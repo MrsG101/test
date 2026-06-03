@@ -252,7 +252,7 @@ if uploaded:
             st.success("✅ Алдаатай гүйлгээ олдсонгүй!")
         else:
             st.dataframe(
-                df_err[show_cols].style.applymap(
+                df_err[show_cols].style.map(
                     lambda v: "background-color:#ffe0e0;color:#cc0000;font-weight:bold" if v else "",
                     subset=["Алдаа"]
                 ),
