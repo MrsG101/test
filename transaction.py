@@ -26,7 +26,6 @@ def mls_base(v):
 
 def load_file(uploaded):
     raw = uploaded.read()
-    # HTML-based XLS (XML/HTML table)
     try:
         soup = BeautifulSoup(raw.decode("utf-8-sig"), "html.parser")
         table = soup.find("table")
@@ -41,7 +40,6 @@ def load_file(uploaded):
             return pd.DataFrame(data, columns=headers)
     except:
         pass
-    # Real XLS/XLSX
     try:
         return pd.read_excel(BytesIO(raw), dtype=str)
     except:
@@ -68,15 +66,27 @@ def check_errors(df):
     dup_trr = df.duplicated("TRR ID", keep=False)
     df["Алдаа_TRR"] = dup_trr.map({True: "Давхардсан", False: ""})
 
-    # 4-b. AgentID өөр дээрээ хаасан: 1 MLS ID дээр нэг AgentID 2+ удаа
-    agent_cnt = df.groupby(["MLS_ID", "AgentID"]).size().reset_index(name="_n")
-    agent_dup = set(
-        zip(agent_cnt[agent_cnt["_n"] >= 2]["MLS_ID"],
-            agent_cnt[agent_cnt["_n"] >= 2]["AgentID"])
-    )
+    # 4-b. AgentID өөр дээрээ хаасан:
+    # Нэг Бүртгэлийн дугаар дээр Listing TRR + Selling TRR хоёулаа ижил AgentID байвал алдаа
+    try:
+        listing_df = df[
+            df["TRR Type"].str.contains("Listing TRR", na=False) &
+            ~df["TRR Type"].str.contains("Listing and Selling", na=False)
+        ][["Бүртгэлийн дугаар", "AgentID"]].copy()
+
+        selling_df = df[
+            df["TRR Type"].str.contains("Selling TRR", na=False) &
+            ~df["TRR Type"].str.contains("Listing and Selling", na=False)
+        ][["Бүртгэлийн дугаар", "AgentID"]].copy()
+
+        merged = listing_df.merge(selling_df, on=["Бүртгэлийн дугаар", "AgentID"], how="inner")
+        agent_dup = set(zip(merged["Бүртгэлийн дугаар"], merged["AgentID"]))
+    except:
+        agent_dup = set()
+
     df["Алдаа_Агент"] = df.apply(
         lambda r: "Агент өөр дээрээ хаасан"
-        if (r["MLS_ID"], r["AgentID"]) in agent_dup else "", axis=1
+        if (r["Бүртгэлийн дугаар"], r["AgentID"]) in agent_dup else "", axis=1
     )
 
     # 4-c. Бүртгэлийн дугаар 3+ удаа давхардал
@@ -85,25 +95,34 @@ def check_errors(df):
         lambda n: f"Лист {n} удаа орсон" if n >= 3 else ""
     )
 
-    # 4-b. AgentID өөр дээрээ хаасан:
-    # Нэг Бүртгэлийн дугаар дээр Listing+Selling хоёулаа ижил AgentID байвал
-    listing_df = df[df["TRR Type"].str.contains("Listing TRR", na=False) & 
-                    ~df["TRR Type"].str.contains("Listing and Selling", na=False)][["Бүртгэлийн дугаар", "AgentID"]].copy()
-    selling_df = df[df["TRR Type"].str.contains("Selling TRR", na=False) & 
-                    ~df["TRR Type"].str.contains("Listing and Selling", na=False)][["Бүртгэлийн дугаар", "AgentID"]].copy()
+    # 4-d. Шимтгэл зөрсөн
+    VALID = {
+        ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
+        ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
+        ("Худалдах", "Listing and Selling TRR"): {3.0, 5.0},
+        ("Худалдах", "Listing TRR"):             {1.5, 2.5},
+    }
 
-    merged = listing_df.merge(selling_df, on=["Бүртгэлийн дугаар", "AgentID"], how="inner")
-    agent_dup = set(zip(merged["Бүртгэлийн дугаар"], merged["AgentID"]))
+    def shimtgel_error(row):
+        key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
+        if key not in VALID:
+            return ""
+        pct = round(float(row["Шимтгэлийн хувь"]), 1)
+        if pct not in VALID[key]:
+            return "Шимтгэл зөрсөн"
+        return ""
 
-    df["Алдаа_Агент"] = df.apply(
-        lambda r: "Агент өөр дээрээ хаасан"
-        if (r["Бүртгэлийн дугаар"], r["AgentID"]) in agent_dup else "", axis=1
-    )
+    df["Алдаа_Шимтгэл"] = df.apply(shimtgel_error, axis=1)
 
     # ── 5. Нийт алдаа багана ────────────────────────────────────────────────
+    # Баганууд заавал байгааг шалгаад нэгтгэнэ
+    error_cols = ["Алдаа_TRR", "Алдаа_Агент", "Алдаа_MLS3", "Алдаа_Шимтгэл"]
+    for ec in error_cols:
+        if ec not in df.columns:
+            df[ec] = ""
+
     def combine(row):
-        parts = [row["Алдаа_TRR"], row["Алдаа_Агент"], row["Алдаа_MLS3"], row["Алдаа_Шимтгэл"]]
-        parts = [p for p in parts if p]
+        parts = [str(row[ec]) for ec in error_cols if str(row[ec]).strip()]
         return " | ".join(parts)
 
     df["Алдаа"] = df.apply(combine, axis=1)
@@ -126,7 +145,6 @@ def to_excel(df_all, df_err):
         ws.freeze_panes = "A2"
         ws.sheet_view.showGridLines = False
 
-        # Header
         hdr_fill = PatternFill("solid", fgColor="1E3A5F")
         err_fill = PatternFill("solid", fgColor="7B1010")
         for ci, col in enumerate(df.columns, 1):
@@ -138,12 +156,11 @@ def to_excel(df_all, df_err):
         ws.row_dimensions[1].height = 22
         ws.auto_filter.ref = ws.dimensions
 
-        # Rows
-        err_row_fill  = PatternFill("solid", fgColor="FFF0F0")
-        even_fill     = PatternFill("solid", fgColor="F5F8FF")
-        odd_fill      = PatternFill("solid", fgColor="FFFFFF")
-        red_font      = Font(name="Arial", size=9, color="CC0000", bold=True)
-        normal_font   = Font(name="Arial", size=9)
+        err_row_fill = PatternFill("solid", fgColor="FFF0F0")
+        even_fill    = PatternFill("solid", fgColor="F5F8FF")
+        odd_fill     = PatternFill("solid", fgColor="FFFFFF")
+        red_font     = Font(name="Arial", size=9, color="CC0000", bold=True)
+        normal_font  = Font(name="Arial", size=9)
 
         for ri, (_, row) in enumerate(df.iterrows(), 2):
             has_err = bool(row.get("Алдаа", ""))
@@ -151,20 +168,18 @@ def to_excel(df_all, df_err):
             for ci, val in enumerate(row, 1):
                 col_name = df.columns[ci - 1]
                 c = ws.cell(row=ri, column=ci, value=val)
-                c.font   = red_font if (col_name == "Алдаа" and has_err) else normal_font
-                c.fill   = bg
+                c.font      = red_font if (col_name == "Алдаа" and has_err) else normal_font
+                c.fill      = bg
                 c.alignment = Alignment(vertical="center", wrap_text=False)
-                c.border = bdr
+                c.border    = bdr
                 if col_name == "Шимтгэлийн хувь" and val:
                     try:
-                        c.value       = float(val)
+                        c.value         = float(val) / 100
                         c.number_format = "0.00%"
-                        c.value       = float(val) / 100
                     except:
                         pass
             ws.row_dimensions[ri].height = 15
 
-        # Колонны өргөн
         col_w = {
             "TRR ID": 12, "TRR Type": 22, "Үл хөдлөх хөрөнгийн хаяг": 30,
             "Шилжүүлэгийн төрөл": 16, "Orig. List Date": 14, "Анхны жагсаалтын үнэ": 16,
@@ -180,9 +195,7 @@ def to_excel(df_all, df_err):
         for ci, col in enumerate(df.columns, 1):
             ws.column_dimensions[get_column_letter(ci)].width = col_w.get(col, 14)
 
-    # Sheet 1: бүх мэдээлэл
     make_sheet(wb, df_all, "Бүх мэдээлэл", "1E3A5F")
-    # Sheet 2: зөвхөн алдаатай
     make_sheet(wb, df_err, "Алдаатай гүйлгээ", "CC0000")
 
     buf = BytesIO()
@@ -212,7 +225,6 @@ if uploaded:
 
     df_err = df[df["Алдаа"] != ""].reset_index(drop=True)
 
-    # ── KPI cards ─────────────────────────────────────────────────────────
     n_total   = len(df)
     n_err     = len(df_err)
     n_dup_trr = (df["Алдаа_TRR"] != "").sum()
@@ -230,7 +242,6 @@ if uploaded:
     c6.metric("💰 Шимтгэл зөрсөн",    f"{n_shimtg:,}")
     st.markdown("---")
 
-    # ── Tabs ──────────────────────────────────────────────────────────────
     tab1, tab2 = st.tabs(["🔴 Алдаатай гүйлгээ", "📋 Бүх мэдээлэл"])
 
     show_cols = [
@@ -258,7 +269,6 @@ if uploaded:
     with tab2:
         st.dataframe(df[show_cols], use_container_width=True, height=500)
 
-    # ── Download ──────────────────────────────────────────────────────────
     st.markdown("---")
     with st.spinner("Excel файл бэлтгэж байна..."):
         excel_buf = to_excel(df, df_err)
@@ -279,7 +289,7 @@ else:
 | Алдааны төрөл | Тайлбар |
 |---|---|
 | **Давхардсан** | TRR ID давхардсан байна |
-| **Агент өөр дээрээ хаасан** | 1 MLS ID дээр нэг AgentID 2+ удаа бүртгэгдсэн |
+| **Агент өөр дээрээ хаасан** | Нэг Бүртгэлийн дугаар дээр Listing болон Selling хоёулаа ижил AgentID байна |
 | **Лист N удаа орсон** | Бүртгэлийн дугаар 3 ба түүнээс дээш удаа давхцсан |
 | **Шимтгэл зөрсөн** | Шимтгэлийн хувь зөвшөөрөгдсөн утгаас зөрсөн |
 
