@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR Report upload хийж алдаатай гүйлгээг шалгана")
+st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -80,7 +80,7 @@ def check_errors(df):
     )
 
     # 4-c. Бүртгэлийн дугаар 3+ удаа давхардал
-    mls_cnt = df.groupby("MLS_ID")["TRR ID"].transform("count")
+    mls_cnt = df.groupby("Бүртгэлийн дугаар")["TRR ID"].transform("count")
     df["Алдаа_MLS3"] = mls_cnt.apply(
         lambda n: f"Лист {n} удаа орсон" if n >= 3 else ""
     )
@@ -94,7 +94,7 @@ def check_errors(df):
     }
 
     def shimtgel_error(row):
-        key = (row["Шилжүүлгийн төрөл"], row["TRR Type"])
+        key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
         if key not in VALID:
             return ""
         pct = round(float(row["Шимтгэлийн хувь"]), 1)
@@ -228,7 +228,7 @@ if uploaded:
     st.markdown("---")
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Нийт гүйлгээ",        f"{n_total:,}")
-    c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",    delta=f"{n_err/n_total*100:.1f}%", delta_color="inverse")
+    c2.metric("🔴 Нийт алдаа",        f"{n_err:,}", delta=f"{n_err/n_total*100:.1f}%", delta_color="inverse")
     c3.metric("🔁 Давхардсан TRR",    f"{n_dup_trr:,}")
     c4.metric("👤 Агент өөрт хаасан", f"{n_agent:,}")
     c5.metric("📋 Лист 3+ удаа",      f"{n_mls3:,}")
@@ -285,7 +285,7 @@ else:
 |---|---|
 | **Давхардсан** | TRR ID давхардсан байна |
 | **Агент өөр дээрээ хаасан** | 1 MLS ID дээр нэг AgentID 2+ удаа бүртгэгдсэн |
-| **Лист N удаа орсон** | MLS 3 ба түүнээс дээш удаа давхцсан |
+| **Лист N удаа орсон** | Бүртгэлийн дугаар 3 ба түүнээс дээш удаа давхцсан |
 | **Шимтгэл зөрсөн** | Шимтгэлийн хувь зөвшөөрөгдсөн утгаас зөрсөн |
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
