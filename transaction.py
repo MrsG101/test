@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 
 st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+st.caption("TRR Report upload хийж алдаатай гүйлгээг шалгана")
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -94,7 +94,7 @@ def check_errors(df):
     }
 
     def shimtgel_error(row):
-        key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
+        key = (row["Шилжүүлгийн төрөл"], row["TRR Type"])
         if key not in VALID:
             return ""
         pct = round(float(row["Шимтгэлийн хувь"]), 1)
