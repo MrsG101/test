@@ -85,25 +85,20 @@ def check_errors(df):
         lambda n: f"Лист {n} удаа орсон" if n >= 3 else ""
     )
 
-    # 4-d. Шимтгэл зөрсөн
-    VALID = {
-        ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
-        ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
-        ("Худалдах", "Listing and Selling TRR"): {3.0, 5.0},
-        ("Худалдах", "Listing TRR"):             {1.5, 2.5},
-    }
+    # 4-b. AgentID өөр дээрээ хаасан:
+    # Нэг Бүртгэлийн дугаар дээр Listing+Selling хоёулаа ижил AgentID байвал
+    listing_df = df[df["TRR Type"].str.contains("Listing TRR", na=False) & 
+                    ~df["TRR Type"].str.contains("Listing and Selling", na=False)][["Бүртгэлийн дугаар", "AgentID"]].copy()
+    selling_df = df[df["TRR Type"].str.contains("Selling TRR", na=False) & 
+                    ~df["TRR Type"].str.contains("Listing and Selling", na=False)][["Бүртгэлийн дугаар", "AgentID"]].copy()
 
-    def shimtgel_error(row):
-        key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
-        if key not in VALID:
-            return ""
-        pct = round(float(row["Шимтгэлийн хувь"]), 1)
-        valid_set = VALID[key]
-        if pct not in valid_set:
-            return "Шимтгэл зөрсөн"
-        return ""
+    merged = listing_df.merge(selling_df, on=["Бүртгэлийн дугаар", "AgentID"], how="inner")
+    agent_dup = set(zip(merged["Бүртгэлийн дугаар"], merged["AgentID"]))
 
-    df["Алдаа_Шимтгэл"] = df.apply(shimtgel_error, axis=1)
+    df["Алдаа_Агент"] = df.apply(
+        lambda r: "Агент өөр дээрээ хаасан"
+        if (r["Бүртгэлийн дугаар"], r["AgentID"]) in agent_dup else "", axis=1
+    )
 
     # ── 5. Нийт алдаа багана ────────────────────────────────────────────────
     def combine(row):
