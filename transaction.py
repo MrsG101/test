@@ -107,15 +107,22 @@ def check_errors(df):
         key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
         if key not in VALID:
             return ""
-        pct = round(float(row["Шимтгэлийн хувь"]), 1)
-        if pct not in VALID[key]:
+        pct = round(float(row["Шимтгэлийн хувь"]), 2)
+        valid_set = VALID[key].copy()
+        # Дүүрэг латинаар бичигдсэн бол (Дубай г.м) тусгай хувь нэмнэ
+        duureg = str(row.get("Дүүрэг", "")).strip()
+        if re.search(r'[a-zA-Z]', duureg):
+            if key == ("Худалдах", "Listing and Selling TRR"):
+                valid_set.add(5.45)
+            elif key == ("Худалдах", "Listing TRR"):
+                valid_set.add(2.72)
+        if pct not in valid_set:
             return "Шимтгэл зөрсөн"
         return ""
 
     df["Алдаа_Шимтгэл"] = df.apply(shimtgel_error, axis=1)
 
     # ── 5. Нийт алдаа багана ────────────────────────────────────────────────
-    # Баганууд заавал байгааг шалгаад нэгтгэнэ
     error_cols = ["Алдаа_TRR", "Алдаа_Агент", "Алдаа_MLS3", "Алдаа_Шимтгэл"]
     for ec in error_cols:
         if ec not in df.columns:
@@ -248,7 +255,7 @@ if uploaded:
         "TRR ID", "TRR Type", "Шилжүүлэгийн төрөл",
         "Үл хөдлөх хөрөнгийн хаяг", "Зарагдсан үнэ",
         "Total Commission", "Шимтгэлийн хувь",
-        "AgentID", "Агент", "Бүртгэлийн дугаар",
+        "AgentID", "Агент", "Бүртгэлийн дугаар", "Дүүрэг",
         "Алдаа_TRR", "Алдаа_Агент", "Алдаа_MLS3", "Алдаа_Шимтгэл", "Алдаа"
     ]
     show_cols = [c for c in show_cols if c in df.columns]
@@ -295,10 +302,12 @@ else:
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
-| Шилжүүлэгийн төрөл | TRR Type | Зөв хувь |
-|---|---|---|
-| Түрээс | Listing and Selling TRR | 20%, 50%, 90% |
-| Түрээс | Listing TRR | 10%, 25%, 45% |
-| Худалдах | Listing and Selling TRR | 3%, 5% |
-| Худалдах | Listing TRR | 1.5%, 2.5% |
+| Шилжүүлэгийн төрөл | TRR Type | Дүүрэг | Зөв хувь |
+|---|---|---|---|
+| Түрээс | Listing and Selling TRR | Монгол | 20%, 50%, 90% |
+| Түрээс | Listing TRR | Монгол | 10%, 25%, 45% |
+| Худалдах | Listing and Selling TRR | Монгол | 3%, 5% |
+| Худалдах | Listing TRR | Монгол | 1.5%, 2.5% |
+| Худалдах | Listing and Selling TRR | Гадаад (латин үсэгтэй) | 3%, 5%, 5.45% |
+| Худалдах | Listing TRR | Гадаад (латин үсэгтэй) | 1.5%, 2.5%, 2.72% |
 """)
