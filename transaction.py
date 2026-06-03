@@ -8,10 +8,11 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
-st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана.")
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+st.title("🔍 Гүйлгээний алдаа шалгах")
+st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+
+# ── helpers ──────────────────────────────────────────────────────────────────
 def parse_num(v):
     v = str(v).replace(" ₮", "").replace("₮", "").replace(",", "").strip()
     try:
@@ -23,9 +24,11 @@ def mls_base(v):
     m = re.match(r"^(\d+)", str(v))
     return m.group(1) if m else str(v)
 
-def load_file(file_bytes):
+def load_file(uploaded):
+    raw = uploaded.read()
+    # HTML-based XLS (XML/HTML table)
     try:
-        soup = BeautifulSoup(file_bytes.decode("utf-8-sig"), "html.parser")
+        soup = BeautifulSoup(raw.decode("utf-8-sig"), "html.parser")
         table = soup.find("table")
         if table:
             rows = table.find_all("tr")
@@ -35,106 +38,102 @@ def load_file(file_bytes):
                 cells = [td.get_text(strip=True) for td in row.find_all("td")]
                 if cells:
                     data.append(cells)
-            if data:
-                return pd.DataFrame(data, columns=headers)
-    except Exception:
+            return pd.DataFrame(data, columns=headers)
+    except:
         pass
-    buf = BytesIO(file_bytes)
+    # Real XLS/XLSX
     try:
-        return pd.read_excel(buf, dtype=str)
-    except Exception:
-        buf.seek(0)
-        return pd.read_excel(buf, engine="openpyxl", dtype=str)
+        return pd.read_excel(BytesIO(raw), dtype=str)
+    except:
+        return pd.read_excel(BytesIO(raw), engine="openpyxl", dtype=str)
 
 def check_errors(df):
+    # ── 1. ₮ replace ────────────────────────────────────────────────────────
     for col in df.columns:
         df[col] = df[col].astype(str).str.replace(" ₮", "", regex=False).str.replace("₮", "", regex=False)
+
+    # ── 2. Тооцоолол ────────────────────────────────────────────────────────
     df["_comm"] = df["Total Commission"].apply(parse_num)
     df["_sold"]  = df["Зарагдсан үнэ"].apply(parse_num)
     df["Шимтгэлийн хувь"] = df.apply(
-        lambda r: round(r["_comm"] / r["_sold"] * 100, 2) if r["_sold"] > 0 else 0.0,
-        axis=1,
+        lambda r: round(r["_comm"] / r["_sold"] * 100, 2) if r["_sold"] > 0 else 0.0, axis=1
     )
 
-    df["Алдаа_TRR"] = df.duplicated("TRR ID", keep=False).map({True: "Давхардсан", False: ""})
+    # ── 3. MLS ID ────────────────────────────────────────────────────────────
+    df["MLS_ID"] = df["Бүртгэлийн дугаар"].apply(mls_base)
 
-    agent_cnt = df.groupby(["Бүртгэлийн дугаар", "AgentID"]).size().reset_index(name="_n")
-    self_close_pairs = set(
-        zip(
-            agent_cnt[agent_cnt["_n"] >= 2]["Бүртгэлийн дугаар"],
-            agent_cnt[agent_cnt["_n"] >= 2]["AgentID"],
-        )
+    # ── 4. Алдааны баганууд ──────────────────────────────────────────────────
+
+    # 4-a. TRR ID давхардал
+    dup_trr = df.duplicated("TRR ID", keep=False)
+    df["Алдаа_TRR"] = dup_trr.map({True: "Давхардсан", False: ""})
+
+    # 4-b. AgentID өөр дээрээ хаасан: 1 MLS ID дээр нэг AgentID 2+ удаа
+    agent_cnt = df.groupby(["MLS_ID", "AgentID"]).size().reset_index(name="_n")
+    agent_dup = set(
+        zip(agent_cnt[agent_cnt["_n"] >= 2]["MLS_ID"],
+            agent_cnt[agent_cnt["_n"] >= 2]["AgentID"])
     )
     df["Алдаа_Агент"] = df.apply(
         lambda r: "Агент өөр дээрээ хаасан"
-        if (r["Бүртгэлийн дугаар"], r["AgentID"]) in self_close_pairs
-        else "",
-        axis=1,
+        if (r["MLS_ID"], r["AgentID"]) in agent_dup else "", axis=1
     )
 
+    # 4-c. Бүртгэлийн дугаар 3+ удаа давхардал
+    mls_cnt = df.groupby("MLS_ID")["TRR ID"].transform("count")
+    df["Алдаа_MLS3"] = mls_cnt.apply(
+        lambda n: f"Лист {n} удаа орсон" if n >= 3 else ""
+    )
+
+    # 4-d. Шимтгэл зөрсөн
     VALID = {
         ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
         ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
-        ("Худалдах", "Listing and Selling TRR"): {3.0,  5.0},
-        ("Худалдах", "Listing TRR"):             {1.5,  2.5},
+        ("Худалдах", "Listing and Selling TRR"): {3.0, 5.0},
+        ("Худалдах", "Listing TRR"):             {1.5, 2.5},
     }
 
-    NOVAT_VALID = {
-        "Listing and Selling TRR": 6 / 1.1,   # ≈ 5.4545...
-        "Listing TRR":             3 / 1.1,   # ≈ 2.7272...
-    }
-
-    def is_latin_duureg(val):
-        s = str(val).strip()
-        if not s or s.lower() == "nan":
-            return False
-        has_latin    = bool(re.search(r'[a-zA-Z]', s))
-        has_cyrillic = bool(re.search(r'[а-яА-ЯөүёӨҮЁ]', s))
-        return has_latin and not has_cyrillic
-
-    def shimtgel_err(row):
+    def shimtgel_error(row):
         key = (row["Шилжүүлэгийн төрөл"], row["TRR Type"])
         if key not in VALID:
             return ""
+        pct = round(float(row["Шимтгэлийн хувь"]), 1)
+        valid_set = VALID[key]
+        if pct not in valid_set:
+            return "Шимтгэл зөрсөн"
+        return ""
 
-        pct = float(row["Шимтгэлийн хувь"])
+    df["Алдаа_Шимтгэл"] = df.apply(shimtgel_error, axis=1)
 
-        if (
-            is_latin_duureg(row.get("Дүүрэг", ""))
-            and row["Шилжүүлэгийн төрөл"] == "Худалдах"
-            and row["TRR Type"] in NOVAT_VALID
-        ):
-            target = NOVAT_VALID[row["TRR Type"]]
-            return "" if abs(pct - target) < 0.01 else "Шимтгэл зөрсөн"
-        return "Шимтгэл зөрсөн" if round(pct, 1) not in VALID[key] else ""
+    # ── 5. Нийт алдаа багана ────────────────────────────────────────────────
+    def combine(row):
+        parts = [row["Алдаа_TRR"], row["Алдаа_Агент"], row["Алдаа_MLS3"], row["Алдаа_Шимтгэл"]]
+        parts = [p for p in parts if p]
+        return " | ".join(parts)
 
-    df["Алдаа_Шимтгэл"] = df.apply(shimtgel_err, axis=1)
+    df["Алдаа"] = df.apply(combine, axis=1)
 
-    df["Алдаа"] = df.apply(
-        lambda r: " | ".join(
-            p for p in [r["Алдаа_TRR"], r["Алдаа_Агент"], r["Алдаа_Шимтгэл"]] if p
-        ),
-        axis=1,
-    )
+    # ── 6. Туслах баганууд арилгах ───────────────────────────────────────────
+    df.drop(columns=["_comm", "_sold", "MLS_ID"], inplace=True)
 
-    df.drop(columns=["_comm", "_sold"], inplace=True)
     return df
 
-def to_excel(df_err):
+def to_excel(df_all, df_err):
     wb = Workbook()
+
     thin = Side(style="thin", color="D0D0D0")
     bdr  = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    def make_sheet(df, title, tab_color, first=False):
-        ws = wb.active if first else wb.create_sheet(title)
+    def make_sheet(wb, df, title, tab_color):
+        ws = wb.active if title == "Бүх мэдээлэл" else wb.create_sheet(title)
         ws.title = title
         ws.tab_color = tab_color
         ws.freeze_panes = "A2"
         ws.sheet_view.showGridLines = False
 
+        # Header
         hdr_fill = PatternFill("solid", fgColor="1E3A5F")
         err_fill = PatternFill("solid", fgColor="7B1010")
-
         for ci, col in enumerate(df.columns, 1):
             c = ws.cell(row=1, column=ci, value=col)
             c.font      = Font(name="Arial", bold=True, size=10, color="FFFFFF")
@@ -144,11 +143,12 @@ def to_excel(df_err):
         ws.row_dimensions[1].height = 22
         ws.auto_filter.ref = ws.dimensions
 
-        err_row_fill = PatternFill("solid", fgColor="FFF0F0")
-        even_fill    = PatternFill("solid", fgColor="F5F8FF")
-        odd_fill     = PatternFill("solid", fgColor="FFFFFF")
-        red_font     = Font(name="Arial", size=9, color="CC0000", bold=True)
-        norm_font    = Font(name="Arial", size=9)
+        # Rows
+        err_row_fill  = PatternFill("solid", fgColor="FFF0F0")
+        even_fill     = PatternFill("solid", fgColor="F5F8FF")
+        odd_fill      = PatternFill("solid", fgColor="FFFFFF")
+        red_font      = Font(name="Arial", size=9, color="CC0000", bold=True)
+        normal_font   = Font(name="Arial", size=9)
 
         for ri, (_, row) in enumerate(df.iterrows(), 2):
             has_err = bool(row.get("Алдаа", ""))
@@ -156,55 +156,56 @@ def to_excel(df_err):
             for ci, val in enumerate(row, 1):
                 col_name = df.columns[ci - 1]
                 c = ws.cell(row=ri, column=ci, value=val)
-                c.font      = red_font if (col_name == "Алдаа" and has_err) else norm_font
-                c.fill      = bg
-                c.alignment = Alignment(vertical="center")
-                c.border    = bdr
-                if col_name == "Шимтгэлийн хувь":
+                c.font   = red_font if (col_name == "Алдаа" and has_err) else normal_font
+                c.fill   = bg
+                c.alignment = Alignment(vertical="center", wrap_text=False)
+                c.border = bdr
+                if col_name == "Шимтгэлийн хувь" and val:
                     try:
-                        c.value         = float(val) / 100
+                        c.value       = float(val)
                         c.number_format = "0.00%"
-                    except Exception:
+                        c.value       = float(val) / 100
+                    except:
                         pass
             ws.row_dimensions[ri].height = 15
 
+        # Колонны өргөн
         col_w = {
-            "TRR ID": 12, "TRR Type": 24, "Үл хөдлөх хөрөнгийн хаяг": 32,
-            "Шилжүүлэгийн төрөл": 16, "Orig. List Date": 14,
-            "Анхны жагсаалтын үнэ": 18, "Зарагдсан өдөр": 14,
-            "Зарагдсан үнэ": 16, "Payment Amount": 16, "Payment Date": 14,
-            "Payments Received": 16, "Оффисын нэр": 22, "AgentID": 14,
-            "Агент": 26, "Бүртгэлийн дугаар": 20, "Дүүрэг": 12,
-            "Total Commission": 16, "# of Agents": 10, "Total Received": 16,
-            "Total Outstanding": 16, "Last Submission Date": 18, "Buyers": 24,
-            "Банк": 20, "Currency": 10, "Market Segment": 14, "First Payment": 12,
-            "Шимтгэлийн хувь": 14, "Алдаа_TRR": 16,
-            "Алдаа_Агент": 26, "Алдаа_Шимтгэл": 18, "Алдаа": 32,
+            "TRR ID": 12, "TRR Type": 22, "Үл хөдлөх хөрөнгийн хаяг": 30,
+            "Шилжүүлэгийн төрөл": 16, "Orig. List Date": 14, "Анхны жагсаалтын үнэ": 16,
+            "Зарагдсан өдөр": 14, "Зарагдсан үнэ": 16, "Payment Amount": 16,
+            "Payment Date": 14, "Payments Received": 16, "Оффисын нэр": 20,
+            "AgentID": 14, "Агент": 24, "Бүртгэлийн дугаар": 18,
+            "Дүүрэг": 12, "Total Commission": 16, "# of Agents": 10,
+            "Total Received": 16, "Total Outstanding": 16, "Last Submission Date": 18,
+            "Buyers": 22, "Банк": 20, "Currency": 10, "Market Segment": 14,
+            "First Payment": 12, "Шимтгэлийн хувь": 14, "Алдаа": 30,
+            "Алдаа_TRR": 16, "Алдаа_Агент": 24, "Алдаа_MLS3": 18, "Алдаа_Шимтгэл": 18,
         }
         for ci, col in enumerate(df.columns, 1):
             ws.column_dimensions[get_column_letter(ci)].width = col_w.get(col, 14)
 
-    make_sheet(df_err, "Алдаатай гүйлгээ", "CC0000", first=True)
+    # Sheet 1: бүх мэдээлэл
+    make_sheet(wb, df_all, "Бүх мэдээлэл", "1E3A5F")
+    # Sheet 2: зөвхөн алдаатай
+    make_sheet(wb, df_err, "Алдаатай гүйлгээ", "CC0000")
 
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
     return buf
 
-
-# ── UI ────────────────────────────────────────────────────────────────────────
+# ── UI ───────────────────────────────────────────────────────────────────────
 uploaded = st.file_uploader(
-    "XLS / XLSX файл оруулна уу",
+    "📂 XLS / XLSX файл сонгоно уу",
     type=["xls", "xlsx"],
-    help="TRR XML Report файл",
+    help="Unegui.mn TRR XML Report файл"
 )
 
 if uploaded:
-    file_bytes = uploaded.read()
-
     with st.spinner("Файл уншиж байна..."):
         try:
-            df_raw = load_file(file_bytes)
+            df_raw = load_file(uploaded)
         except Exception as e:
             st.error(f"Файл уншихад алдаа гарлаа: {e}")
             st.stop()
@@ -216,71 +217,83 @@ if uploaded:
 
     df_err = df[df["Алдаа"] != ""].reset_index(drop=True)
 
-    n_total  = len(df)
-    n_err    = len(df_err)
-    n_dup    = (df["Алдаа_TRR"]     != "").sum()
-    n_agent  = (df["Алдаа_Агент"]   != "").sum()
-    n_shimtg = (df["Алдаа_Шимтгэл"] != "").sum()
+    # ── KPI cards ─────────────────────────────────────────────────────────
+    n_total   = len(df)
+    n_err     = len(df_err)
+    n_dup_trr = (df["Алдаа_TRR"] != "").sum()
+    n_agent   = (df["Алдаа_Агент"] != "").sum()
+    n_mls3    = (df["Алдаа_MLS3"] != "").sum()
+    n_shimtg  = (df["Алдаа_Шимтгэл"] != "").sum()
 
     st.markdown("---")
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Нийт гүйлгээ",        f"{n_total:,}")
-    c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",
-              delta=f"{n_err / n_total * 100:.1f}%", delta_color="inverse")
-    c3.metric("🔁 Давхардсан TRR",    f"{n_dup:,}")
-    c4.metric("👤 Агент өөр дээрээ хаасан", f"{n_agent:,}")
-    c5.metric("💰 Шимтгэл зөрсөн",   f"{n_shimtg:,}")
+    c2.metric("🔴 Нийт алдаа",        f"{n_err:,}",    delta=f"{n_err/n_total*100:.1f}%", delta_color="inverse")
+    c3.metric("🔁 Давхардсан TRR",    f"{n_dup_trr:,}")
+    c4.metric("👤 Агент өөрт хаасан", f"{n_agent:,}")
+    c5.metric("📋 Лист 3+ удаа",      f"{n_mls3:,}")
+    c6.metric("💰 Шимтгэл зөрсөн",    f"{n_shimtg:,}")
     st.markdown("---")
+
+    # ── Tabs ──────────────────────────────────────────────────────────────
+    tab1, tab2 = st.tabs(["🔴 Алдаатай гүйлгээ", "📋 Бүх мэдээлэл"])
 
     show_cols = [
         "TRR ID", "TRR Type", "Шилжүүлэгийн төрөл",
         "Үл хөдлөх хөрөнгийн хаяг", "Зарагдсан үнэ",
         "Total Commission", "Шимтгэлийн хувь",
-        "AgentID", "Агент", "Бүртгэлийн дугаар", "Дүүрэг",
-        "Алдаа_TRR", "Алдаа_Агент", "Алдаа_Шимтгэл", "Алдаа",
+        "AgentID", "Агент", "Бүртгэлийн дугаар",
+        "Алдаа_TRR", "Алдаа_Агент", "Алдаа_MLS3", "Алдаа_Шимтгэл", "Алдаа"
     ]
     show_cols = [c for c in show_cols if c in df.columns]
 
-    if n_err == 0:
-        st.success("✅ Алдаатай гүйлгээ олдсонгүй!")
-    else:
-        def highlight_err(val):
-            return "background-color:#ffe0e0;color:#cc0000;font-weight:bold" if val else ""
+    with tab1:
+        if n_err == 0:
+            st.success("✅ Алдаатай гүйлгээ олдсонгүй!")
+        else:
+            st.dataframe(
+                df_err[show_cols].style.applymap(
+                    lambda v: "background-color:#ffe0e0;color:#cc0000;font-weight:bold" if v else "",
+                    subset=["Алдаа"]
+                ),
+                use_container_width=True,
+                height=500,
+            )
 
-        styled = df_err[show_cols].style.map(highlight_err, subset=["Алдаа"])
-        st.dataframe(styled, use_container_width=True, height=500)
+    with tab2:
+        st.dataframe(df[show_cols], use_container_width=True, height=500)
 
+    # ── Download ──────────────────────────────────────────────────────────
     st.markdown("---")
     with st.spinner("Excel файл бэлтгэж байна..."):
-        excel_buf = to_excel(df_err)
+        excel_buf = to_excel(df, df_err)
 
     st.download_button(
-        label=f"Excel татах  —  {n_err:,} алдаатай гүйлгээ",
+        label=f"📥 Excel татах — {n_err:,} алдаатай гүйлгээ",
         data=excel_buf,
         file_name="trr_aldaa_shalgah.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
     )
-    st.caption("Excel файлд алдаатай гүйлгээнүүд байна")
+    st.caption("Excel файлд 2 sheet байна: 'Бүх мэдээлэл' ба 'Алдаатай гүйлгээ'")
 
 else:
-    st.info("XLS / XLSX файл upload хийнэ үү")
-    with st.expander("ℹ️Алдаануудын тайлбар"):
+    st.info("👆 XLS файл upload хийнэ үү")
+    with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
 |---|---|
 | **Давхардсан** | TRR ID давхардсан байна |
-| **Агент өөр дээрээ хаасан** | Нэг MLS ID дээр ижил AgentID **Listing TRR болон Selling TRR хоёуланд** бүртгэгдсэн |
-| **Шимтгэл зөрсөн** | Шимтгэлийн хувь журам дээрх шимтгэлийн үндсэн хувиас зөрсөн |
+| **Агент өөр дээрээ хаасан** | 1 MLS ID дээр нэг AgentID 2+ удаа бүртгэгдсэн |
+| **Лист N удаа орсон** | MLS 3 ба түүнээс дээш удаа давхцсан |
+| **Шимтгэл зөрсөн** | Шимтгэлийн хувь зөвшөөрөгдсөн утгаас зөрсөн |
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
-| Шилжүүлэгийн төрөл | TRR Type | Дүүрэг | Зөв хувь |
-|---|---|---|---|
-| Түрээс | Listing and Selling TRR | Аль ч | 20%, 50%, 90% |
-| Түрээс | Listing TRR | Аль ч | 10%, 25%, 45% |
-| Худалдах | Listing and Selling TRR | Монгол | 3%, 5% |
-| Худалдах | Listing TRR | Кирилл | 1.5%, 2.5% |
-| Худалдах | Listing and Selling TRR | **Дубай** | **≈5.45%** (6÷1.1, НӨАТ-тай) |
-| Худалдах | Listing TRR | **Дубай** | **≈2.73%** (3÷1.1, НӨАТ-тай) |
+| Шилжүүлэгийн төрөл | TRR Type | Зөв хувь |
+|---|---|---|
+| Түрээс | Listing and Selling TRR | 20%, 50%, 90% |
+| Түрээс | Listing TRR | 10%, 25%, 45% |
+| Худалдах | Listing and Selling TRR | 3%, 5% |
+| Худалдах | Listing TRR | 1.5%, 2.5% |
 """)
