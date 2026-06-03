@@ -9,8 +9,8 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Гүйлгээний алдаа шалгах", layout="wide", page_icon="🔍")
 
-st.title("🔍 Гүйлгээний алдаа шалгах")
-st.caption("TRR XML Report файл upload хийж алдаатай гүйлгээг шалгана")
+st.title("Гүйлгээний алдаа шалгах")
+st.caption("TRR Report файл upload хийж алдаатай гүйлгээг шалгана")
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 def parse_num(v):
@@ -214,7 +214,7 @@ def to_excel(df_all, df_err):
 uploaded = st.file_uploader(
     "📂 XLS / XLSX файл сонгоно уу",
     type=["xls", "xlsx"],
-    help="Unegui.mn TRR XML Report файл"
+    help="TRR Report файл"
 )
 
 if uploaded:
@@ -291,18 +291,18 @@ if uploaded:
 
 else:
     st.info("👆 XLS файл upload хийнэ үү")
-    with st.expander("ℹ️ Шалгадаг алдаануудын тайлбар"):
+    with st.expander("ℹ️ Алдаануудын тайлбар"):
         st.markdown("""
 | Алдааны төрөл | Тайлбар |
 |---|---|
 | **Давхардсан** | TRR ID давхардсан байна |
-| **Агент өөр дээрээ хаасан** | Нэг Бүртгэлийн дугаар дээр Listing болон Selling хоёулаа ижил AgentID байна |
+| **Агент өөр дээрээ хаасан** | Нэг MLS дээр Listing болон Selling хоёулаа ижил AgentID байна |
 | **Лист N удаа орсон** | Бүртгэлийн дугаар 3 ба түүнээс дээш удаа давхцсан |
 | **Шимтгэл зөрсөн** | Шимтгэлийн хувь зөвшөөрөгдсөн утгаас зөрсөн |
 
 **Зөвшөөрөгдсөн шимтгэлийн хувь:**
 
-| Шилжүүлэгийн төрөл | TRR Type | Дүүрэг | Зөв хувь |
+| Шилжүүлгийн төрөл | TRR Type | Дүүрэг | Зөв хувь |
 |---|---|---|---|
 | Түрээс | Listing and Selling TRR | Монгол | 20%, 50%, 90% |
 | Түрээс | Listing TRR | Монгол | 10%, 25%, 45% |
