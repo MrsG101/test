@@ -97,8 +97,8 @@ def check_errors(df):
 
     # 4-d. Шимтгэл зөрсөн
     VALID = {
-        ("Түрээс",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
-        ("Түрээс",   "Listing TRR"):             {10.0, 25.0, 45.0},
+        ("Түрээслэх",   "Listing and Selling TRR"): {20.0, 50.0, 90.0},
+        ("Түрээслэх",   "Listing TRR"):             {10.0, 25.0, 45.0},
         ("Худалдах", "Listing and Selling TRR"): {3.0, 5.0},
         ("Худалдах", "Listing TRR"):             {1.5, 2.5},
     }
